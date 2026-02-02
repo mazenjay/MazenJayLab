@@ -1,0 +1,17 @@
+[app]
+env = "debug"   # 开发模式 debug, 生产模式 release
+port = "8080"   # 服务端口
+
+[database]
+# 驱动类型: sqlite, mysql, postgres
+driver = "sqlite"
+
+# SQLite 专用配置
+source = "portfolio.db"
+
+# MySQL/PostgreSQL 配置 (备用，当前未启用)
+# host = "127.0.0.1"
+# port = "3306"
+# user = "root"
+# password = "your_password"
+# db_name = "my_portfolio"
