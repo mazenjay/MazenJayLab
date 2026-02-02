@@ -1,14 +1,13 @@
-package store
+package domain
 
 import (
 	"context"
 	"errors"
-	"mjlab/internal/domain"
 )
 
 type DBStore interface {
-	GetArticle(context.Context, uint) (*domain.Article, error) // 根据 id 获取文章
-	ListArticles(context.Context, Query) ([]*domain.Article, int, error)
+	GetArticle(context.Context, uint) (*Article, error) // 根据 id 获取文章
+	ListArticles(context.Context, Query) ([]*Article, int64, error)
 
 	// CreateArticle(context.Context, *domain.Article) error
 	// UpdateArticle(context.Context, *domain.Article) error
@@ -32,14 +31,14 @@ func InitDBStore(store DBStore) {
 	dbStore = store
 }
 
-func GetArticle(ctx context.Context, id uint) (*domain.Article, error) {
+func GetArticle(ctx context.Context, id uint) (*Article, error) {
 	if dbStore == nil {
 		return nil, errors.New("db store not initialized")
 	}
 	return dbStore.GetArticle(ctx, id)
 }
 
-func ListArticles(ctx context.Context, query Query) ([]*domain.Article, int, error) {
+func ListArticles(ctx context.Context, query Query) ([]*Article, int64, error) {
 	if dbStore == nil {
 		return nil, 0, errors.New("db store not initialized")
 	}

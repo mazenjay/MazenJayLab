@@ -1,6 +1,8 @@
 package domain
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 type Article struct {
 	gorm.Model         // 包含 ID, CreatedAt, UpdatedAt, DeletedAt
