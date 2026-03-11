@@ -1,19 +1,213 @@
 package domain
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
+	"io"
+	"mjlab/internal/pkg/md2html"
+	"strings"
+	"time"
+
+	"golang.org/x/net/html"
 )
 
 type Article struct {
-	gorm.Model         // 包含 ID, CreatedAt, UpdatedAt, DeletedAt
-	Title       string `gorm:"type:varchar(255);not null"`
-	Slug        string `gorm:"type:varchar(255);unique;index"` // 用于URL优化的别名，如 /article/my-first-post
-	Summary     string `gorm:"type:varchar(500)"`              // 文章摘要
-	Path        string `gorm:"type:varchar(255)"`              // 文件路径
-	ViewCount   uint   `gorm:"default:0"`                      // 阅读量
-	IsPublished bool   `gorm:"default:true"`                   // 是否发布
+	ID uint
+
+	Title       string
+	Slug        string
+	Summary     string
+	ViewCount   uint
+	IsPublished bool
+	Tag         string
+	Markdown    string
+	Html        string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-func (Article) TableName() string {
+func (*Article) TableName() string {
 	return "articles"
 }
+
+type ArticleRepository interface {
+	Get(context.Context, ...uint) ([]*Article, error)
+	List(context.Context, Query) ([]*Article, int64, error)
+	Save(context.Context, *Article) error
+	Update(context.Context, *Article) error
+	Delete(context.Context, uint) error
+}
+
+func AddArticle(ctx context.Context, article *Article) error {
+	return uow.Article().Save(ctx, article)
+}
+
+func GetArticle(ctx context.Context, ids ...uint) ([]*Article, error) {
+	return uow.Article().Get(ctx, ids...)
+}
+
+func GetArticles(ctx context.Context, q Query) ([]*Article, int64, error) {
+	return uow.Article().List(ctx, q)
+}
+
+func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer) error {
+	var (
+		doc     *md2html.Document
+		err     error
+		content []byte
+	)
+
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+
+	if content, err = io.ReadAll(fis); !errors.Is(err, io.EOF) {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	doc, err = md2html.ParseMarkdown(nil, content)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	if err = doc.GenerateStaticHTML(ctx, HtmlTemplateFilePath, output); err != nil {
+		return err
+	}
+
+	a.Title = doc.Title
+	a.Summary = doc.Description
+	a.Tag = strings.Join(doc.Tags, " ")
+
+	return nil
+}
+
+func (a *Article) ExtractHtmlText(ctx context.Context) (string, error) {
+
+	var (
+		file    *OSSFile
+		err     error
+		content []byte
+		doc     *md2html.Document
+	)
+	if err = ctx.Err(); err != nil {
+		return "", err
+	}
+
+	if a.Html == "" {
+		if file, err = DownloadFile(ctx, a.Markdown); err != nil {
+			return "", err
+		}
+
+		if content, err = io.ReadAll(file); !errors.Is(err, io.EOF) {
+			return "", err
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
+		doc, err = md2html.ParseMarkdown(nil, content)
+		if err != nil {
+			return "", err
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
+		return a.extractHtmlText(doc.HTML)
+
+	} else {
+		if file, err = DownloadFile(ctx, a.Html); err != nil {
+			return "", err
+		}
+
+		if content, err = io.ReadAll(file); !errors.Is(err, io.EOF) {
+			return "", err
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
+		return a.extractHtmlText(string(content))
+	}
+
+}
+
+func (*Article) extractHtmlText(htmlStr string) (string, error) {
+	document, ex := html.Parse(strings.NewReader(htmlStr))
+	if ex != nil {
+		return "", ex
+	}
+
+	var buf strings.Builder
+
+	var walk func(*html.Node)
+
+	walk = func(n *html.Node) {
+
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "script", "style", "code", "pre", "head", "meta", "link", "noscript", "a":
+				return
+			}
+		}
+
+		if n.Type == html.TextNode {
+
+			text := strings.TrimSpace(n.Data)
+
+			if text != "" {
+				buf.WriteString(text)
+				buf.WriteString(" ")
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+
+	walk(document)
+	s := buf.String()
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\t", " ")
+
+	return strings.Join(strings.Fields(s), " "), nil
+}
+
+type ArticleSearchIndex interface {
+	io.Closer
+	IndexArticle(ctx context.Context, article *Article) error
+	IndexArticles(ctx context.Context, articles []*Article) error
+	DeleteArticle(ctx context.Context, id uint) error
+	Search(ctx context.Context, query SearchQuery) (*SearchResults, error)
+}
+
+const (
+	ArticleFieldTitle     IndexField = "title"
+	ArticleFieldContent   IndexField = "content"
+	ArticleFieldSummary   IndexField = "summary"
+	ArticleFieldTags      IndexField = "tags"
+	ArticleFieldPublished IndexField = "published_at"
+)
