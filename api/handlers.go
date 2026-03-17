@@ -67,10 +67,10 @@ func Index(c *gin.Context) {
 	query.Sort = "created_at"
 	query.Limit = pageSize + 1
 	records, _ := articleServ.Pagination(c, query)
-	hasMore = len(records) > pageSize
+	hasMore = len(records) >= pageSize
 
 	c.HTML(http.StatusOK, "index2.html", &gin.H{
-		"Articles": records[:pageSize],
+		"Articles": records[:min(len(records), pageSize)],
 		"HasMore":  hasMore,
 	})
 
