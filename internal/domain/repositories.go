@@ -30,3 +30,5 @@ func ArticleRepo() ArticleRepository {
 func Do(ctx context.Context, fn func(UnitOfWork) error) error {
 	return uow.Do(ctx, fn)
 }
+
+type Tags []string

@@ -4,7 +4,7 @@ type ArticleOverview struct {
 	ID       uint   `json:"id"`
 	Title    string `json:"title"`
 	Summary  string `json:"summary"`
-	Category string `json:"category"`
+	Tags []string `json:"tags"`
 	Date     string `json:"date"`
 	Slug string `json:"slug"`
 }

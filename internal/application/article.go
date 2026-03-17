@@ -22,11 +22,11 @@ func (*ArticleService) Pagination(ctx context.Context, query domain.Query) ([]*m
 	overviews := make([]*model.ArticleOverview, len(articles))
 	for idx, val := range articles {
 		overviews[idx] = &model.ArticleOverview{
-			ID:       val.ID,
-			Title:    val.Title,
-			Summary:  val.Summary,
-			Category: val.Tag,
-			Slug:     val.Slug,
+			ID:      val.ID,
+			Title:   val.Title,
+			Summary: val.Summary,
+			Tags:    val.Tags,
+			Slug:    val.Slug,
 		}
 	}
 

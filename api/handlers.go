@@ -66,12 +66,18 @@ func Index(c *gin.Context) {
 	query.SortOrder = "desc"
 	query.Sort = "created_at"
 	query.Limit = pageSize + 1
-	records, _ := articleServ.Pagination(c, query)
-	hasMore = len(records) >= pageSize
+	records, total := articleServ.Pagination(c, query)
+	hasMore = len(records) > pageSize
 
-	c.HTML(http.StatusOK, "index2.html", &gin.H{
-		"Articles": records[:min(len(records), pageSize)],
-		"HasMore":  hasMore,
+	pages := total / pageSize
+	if pages*pageSize < total {
+		pages += 1
+	}
+
+	c.HTML(http.StatusOK, "index.html", &gin.H{
+		"Articles":   records[:min(len(records), pageSize)],
+		"HasMore":    hasMore,
+		"TotalPages": pages,
 	})
 
 }
@@ -93,7 +99,7 @@ func ArticlePagination(c *gin.Context) {
 	query.Offset = (page - 1) * pageSize
 
 	records, total := articleServ.Pagination(c, query)
-	c.JSON(200, model.Page{Total: total, Records: records[:pageSize], HasMore: len(records) > pageSize})
+	c.JSON(200, model.Page{Total: total, Records: records[:min(len(records), pageSize)], HasMore: len(records) > pageSize})
 }
 
 func ShowArticle(c *gin.Context) {
