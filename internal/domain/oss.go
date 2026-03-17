@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 )
@@ -28,10 +29,16 @@ func InitOSS(store OSS) {
 }
 
 func UploadFile(ctx context.Context, path string, file io.Reader) (string, error) {
+	if ossStore == nil {
+		return "", errors.New("ossStore is nil")
+	}
 	return ossStore.Upload(ctx, path, file)
 }
 
 func DownloadFile(ctx context.Context, path string) (*OSSFile, error) {
+	if ossStore == nil {
+		return nil, errors.New("ossStore is nil")
+	}
 	return ossStore.Download(ctx, path)
 }
 

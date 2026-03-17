@@ -7,7 +7,7 @@ port = "8080"   # 服务端口
 driver = "sqlite"
 
 # SQLite 专用配置
-source = "portfolio.db"
+source = "/Users/mazhj/Documents/workspaces/projects/MazenJayLab/testdata/mazenjay.db"
 
 # MySQL/PostgreSQL 配置 (备用，当前未启用)
 # host = "127.0.0.1"

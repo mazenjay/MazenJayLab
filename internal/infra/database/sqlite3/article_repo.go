@@ -3,9 +3,10 @@ package sqlite3
 import (
 	"context"
 	"errors"
-	"gorm.io/gorm"
 	"mjlab/internal/domain"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 var _ domain.ArticleRepository = (*ArticleRepo)(nil)
@@ -36,6 +37,8 @@ func (r *ArticleRepo) List(ctx context.Context, query domain.Query) ([]*domain.A
 	)
 
 	db := r.db.WithContext(ctx).Model(&domain.Article{})
+
+	db = db.Where("is_published = ?", true)
 
 	if query.Keywords != "" {
 		like := "%" + query.Keywords + "%"

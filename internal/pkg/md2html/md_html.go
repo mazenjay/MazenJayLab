@@ -43,7 +43,7 @@ func newMarkdown() goldmark.Markdown {
 			extension.GFM,
 			meta.Meta,
 			highlight.NewHighlighting(
-				highlight.WithStyle("github"),
+				highlight.WithStyle("github-dark"),
 				highlight.WithFormatOptions(
 					html.WithLineNumbers(true),
 				),

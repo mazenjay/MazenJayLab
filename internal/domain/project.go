@@ -1,20 +1,24 @@
 package domain
 
-import "gorm.io/gorm"
+import "time"
 
 type Project struct {
-	gorm.Model
-	Title       string `gorm:"type:varchar(255);not null"`
-	Description string `gorm:"type:varchar(500)"`
-	Path        string `gorm:"type:varchar(255)"`
-	Content     string `gorm:"type:text"`
-	CoverURL    string `gorm:"type:varchar(255)"`
-	DemoURL     string `gorm:"type:varchar(255)"`
-	SourceURL   string `gorm:"type:varchar(255)"`
-	ViewCount   uint   `gorm:"default:0"`
-	IsPublished bool   `gorm:"default:true"`
+	ID          uint
+	Title       string
+	Description string
+	Path        string
+	Content     string
+	CoverURL    string
+	DemoURL     string
+	SourceURL   string
+	ViewCount   uint
+	IsPublished bool
+	Tag         string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-func (Project) TableName() string {
+func (p Project) TableName() string {
 	return "projects"
 }

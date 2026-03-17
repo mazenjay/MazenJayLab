@@ -51,7 +51,7 @@ func GetArticles(ctx context.Context, q Query) ([]*Article, int64, error) {
 	return uow.Article().List(ctx, q)
 }
 
-func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer) error {
+func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, template string) error {
 	var (
 		doc     *md2html.Document
 		err     error
@@ -83,7 +83,7 @@ func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer) er
 	default:
 	}
 
-	if err = doc.GenerateStaticHTML(ctx, HtmlTemplateFilePath, output); err != nil {
+	if err = doc.GenerateStaticHTML(ctx, template, output); err != nil {
 		return err
 	}
 
@@ -196,18 +196,19 @@ func (*Article) extractHtmlText(htmlStr string) (string, error) {
 	return strings.Join(strings.Fields(s), " "), nil
 }
 
-type ArticleSearchIndex interface {
-	io.Closer
-	IndexArticle(ctx context.Context, article *Article) error
-	IndexArticles(ctx context.Context, articles []*Article) error
-	DeleteArticle(ctx context.Context, id uint) error
-	Search(ctx context.Context, query SearchQuery) (*SearchResults, error)
-}
+var _ Searchable = (*Article)(nil)
 
-const (
-	ArticleFieldTitle     IndexField = "title"
-	ArticleFieldContent   IndexField = "content"
-	ArticleFieldSummary   IndexField = "summary"
-	ArticleFieldTags      IndexField = "tags"
-	ArticleFieldPublished IndexField = "published_at"
-)
+func (a *Article) GetSearchID() uint        { return a.ID }
+func (a *Article) GetSearchType() string    { return "article" }
+func (a *Article) GetSearchTitle() string   { return a.Title }
+func (a *Article) GetSearchSummary() string { return a.Summary }
+func (a *Article) GetSearchContent(ctx context.Context) (string, error) {
+	return a.ExtractHtmlText(ctx)
+}
+func (a *Article) GetSearchTags() []string {
+	if a.Tag == "" {
+		return []string{}
+	}
+	return strings.Split(a.Tag, ",")
+}
+func (a *Article) GetSearchCreatedAt() time.Time { return a.CreatedAt }
