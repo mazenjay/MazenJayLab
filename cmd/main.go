@@ -94,6 +94,7 @@ func startUserServer() *http.Server {
 func startAdminServer() *http.Server {
 
 	engine := gin.Default()
+	engine.Use(api.RSAVerifyMiddleware())
 	engine.POST("/article", api.CreateArticle)
 	engine.POST("/rebuild-index", api.RebuildIndex)
 	engine.POST("/article/:id/:status", api.ManageArticleStatus)
