@@ -46,7 +46,7 @@ func DeleteFile(ctx context.Context, path string) error {
 	return ossStore.Delete(ctx, path)
 }
 
-func UploadWithTempFile(ctx context.Context, path string, writeFn func(writer io.Writer) error) (string, error) {
+func UploadWithTempFile(ctx context.Context,  writeFn func(writer io.Writer) (string,error)) (string, error) {
 	tmpFile, err := os.CreateTemp("", "upload-*.tmp")
 	if err != nil {
 		return "", err
@@ -59,7 +59,8 @@ func UploadWithTempFile(ctx context.Context, path string, writeFn func(writer io
 		_ = os.Remove(tmpPath)
 	}()
 
-	if err = writeFn(tmpFile); err != nil {
+	var filename string
+	if filename, err = writeFn(tmpFile); err != nil {
 		return "", err
 	}
 
@@ -67,5 +68,5 @@ func UploadWithTempFile(ctx context.Context, path string, writeFn func(writer io
 		return "", err
 	}
 
-	return UploadFile(ctx, path, tmpFile)
+	return UploadFile(ctx, filename, tmpFile)
 }

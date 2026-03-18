@@ -2,8 +2,12 @@ package application
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"mjlab/api/model"
 	"mjlab/internal/domain"
 	"mjlab/internal/infra/config"
@@ -62,10 +66,17 @@ func (*ArticleService) ConvertMd(ctx context.Context, force, publish bool, id ui
 		if ex != nil {
 			return ex
 		}
-		filename := filepath.Join("article", article.Slug+".html")
-		path, err = domain.UploadWithTempFile(newCtx, filename, func(writer io.Writer) error {
-			return article.Render(newCtx, file, writer, config.Cfg.Article.Template)
-		})
+		if path, err = domain.UploadWithTempFile(newCtx, func(writer io.Writer) (string, error) {
+			if e := article.Render(newCtx, file, writer, config.Cfg.Article.Template); e != nil {
+				return "", e
+			}
+			filename := filepath.Join("article", article.Slug+".html")
+			return filename, nil
+		}); err != nil {
+			slog.Warn("convert to md failed")
+			return err
+		}
+
 		article.Html = path
 
 		return repo.Update(ctx, article)
@@ -73,10 +84,14 @@ func (*ArticleService) ConvertMd(ctx context.Context, force, publish bool, id ui
 }
 
 func (*ArticleService) Add(ctx context.Context, path string) (uint, error) {
+	now := time.Now()
+	data := fmt.Sprintf("%s-%d", path, now.UnixNano())
+	sum := sha256.Sum256([]byte(data))
 	article := &domain.Article{
+		Slug: hex.EncodeToString(sum[:]),
 		Markdown:  path,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	if err := domain.AddArticle(ctx, article); err != nil {
 		return 0, err

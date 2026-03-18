@@ -30,6 +30,7 @@ type TOCItem struct {
 type Document struct {
 	Title       string
 	Description string
+	Slug        string
 	Draft       bool
 	Tags        []string
 	Date        time.Time
@@ -67,11 +68,11 @@ func ParseMarkdown(md goldmark.Markdown, source []byte) (*Document, error) {
 	reader := text.NewReader(source)
 
 	// 2. 解析成 AST (只解析一次)
-	context := parser.NewContext()
-	doc := md.Parser().Parse(reader, parser.WithContext(context))
+	ctx := parser.NewContext()
+	doc := md.Parser().Parse(reader, parser.WithContext(ctx))
 
 	// 3. 提取元数据 (meta)
-	metaData := meta.Get(context)
+	metaData := meta.Get(ctx)
 	document := &Document{}
 	fillMetadata(document, metaData)
 
@@ -113,6 +114,9 @@ func fillMetadata(a *Document, m map[string]interface{}) {
 		if err == nil {
 			a.Date = t
 		}
+	}
+	if v, ok := m["slug"].(string); ok {
+		a.Slug = v
 	}
 }
 

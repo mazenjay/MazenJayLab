@@ -19,7 +19,7 @@ type Article struct {
 	Summary     string
 	ViewCount   uint
 	IsPublished bool
-	Tags         []string `gorm:"column:tags;serializer:json"`
+	Tags        []string `gorm:"column:tags;serializer:json"`
 	Markdown    string
 	Html        string
 
@@ -62,7 +62,7 @@ func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, te
 		return err
 	}
 
-	if content, err = io.ReadAll(fis); !errors.Is(err, io.EOF) {
+	if content, err = io.ReadAll(fis); err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 
@@ -90,6 +90,7 @@ func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, te
 	a.Title = doc.Title
 	a.Summary = doc.Description
 	a.Tags = doc.Tags
+	a.Slug = doc.Slug
 
 	return nil
 }
@@ -205,5 +206,5 @@ func (a *Article) GetSearchSummary() string { return a.Summary }
 func (a *Article) GetSearchContent(ctx context.Context) (string, error) {
 	return a.ExtractHtmlText(ctx)
 }
-func (a *Article) GetSearchTags() []string { return a.Tags }
+func (a *Article) GetSearchTags() []string       { return a.Tags }
 func (a *Article) GetSearchCreatedAt() time.Time { return a.CreatedAt }
