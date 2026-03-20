@@ -12,10 +12,10 @@ import (
 )
 
 type Article struct {
-	ID uint
+	ID uint `gorm:"primarykey"`
 
 	Title       string
-	Slug        string
+	Slug        string `gorm:uniqueIndex`
 	Summary     string
 	ViewCount   uint
 	IsPublished bool
@@ -140,7 +140,7 @@ func (a *Article) ExtractHtmlText(ctx context.Context) (string, error) {
 			return "", err
 		}
 
-		if content, err = io.ReadAll(file); !errors.Is(err, io.EOF) {
+		if content, err = io.ReadAll(file); err != nil && !errors.Is(err, io.EOF) {
 			return "", err
 		}
 
@@ -208,3 +208,4 @@ func (a *Article) GetSearchContent(ctx context.Context) (string, error) {
 }
 func (a *Article) GetSearchTags() []string       { return a.Tags }
 func (a *Article) GetSearchCreatedAt() time.Time { return a.CreatedAt }
+func (a *Article) GetIcon() string { return "/statics/images/article.png" }

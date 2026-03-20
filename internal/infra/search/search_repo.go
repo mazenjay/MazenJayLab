@@ -158,7 +158,7 @@ func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.Search
 		}
 
 		var articleID int64
-		var title, summary, docType string
+		var title, summary, docType, icon string
 		highlightMap := make(map[string][]string)
 
 		err = match.VisitStoredFields(func(field string, value []byte) bool {
@@ -171,6 +171,8 @@ func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.Search
 			switch field {
 			case string(domain.FieldID):
 				articleID, _ = strconv.ParseInt(string(value), 10, 64)
+			case string(domain.FieldIcon):
+				icon = string(value)
 			case string(domain.FieldDocType):
 				docType = string(value)
 			case string(domain.FieldTitle):
@@ -199,6 +201,7 @@ func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.Search
 			Title:     title,
 			Summary:   summary,
 			Highlight: highlightMap,
+			Icon:      icon,
 		})
 
 		curr++
@@ -222,8 +225,9 @@ func (r *repo) buildDocument(ctx context.Context, s domain.Searchable) *blugelib
 	doc := blugelib.NewDocument(globalID)
 
 	doc.AddField(blugelib.NewKeywordField(string(domain.FieldDocType), s.GetSearchType()).StoreValue())
+	doc.AddField(blugelib.NewKeywordField(string(domain.FieldIcon), s.GetIcon()).StoreValue())
 	idStr := strconv.FormatInt(int64(s.GetSearchID()), 10)
-	// id field (stored, not analyzed) - 作为删除/更新的 key
+	// id field (stored, not analyzed)
 	doc.AddField(
 		blugelib.NewKeywordFieldBytes(string(domain.FieldID), []byte(idStr)).
 			StoreValue().

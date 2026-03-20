@@ -23,6 +23,7 @@ type Searchable interface {
 	GetSearchContent(ctx context.Context) (string, error) // 获取正文文本
 	GetSearchTags() []string                              // 获取标签
 	GetSearchCreatedAt() time.Time                        // 获取创建/发布时间
+	GetIcon() string									// 获取展示Icon
 }
 
 type SearchIndex interface {
@@ -148,6 +149,7 @@ func NewSearchQuery(keywords string, page, perPage int) (SearchQuery, error) {
 type IndexField string
 
 const (
+	FieldIcon IndexField = "icon"
 	FieldDocType   IndexField = "doc_type"
 	FieldID        IndexField = "id"
 	FieldTitle     IndexField = "title"
@@ -158,12 +160,13 @@ const (
 )
 
 type SearchResult struct {
-	Type      string
-	ID        uint
-	Score     float64
-	Title     string
-	Summary   string
-	Highlight map[string][]string // field -> highlighted fragments
+	Type      string              `json:"type"`
+	ID        uint                `json:"id"`
+	Score     float64             `json:"score"`
+	Title     string              `json:"title"`
+	Summary   string              `json:"summary"`
+	Highlight map[string][]string `json:"-"`
+	Icon string `json:"icon_url"`
 }
 
 type SearchResults struct {
