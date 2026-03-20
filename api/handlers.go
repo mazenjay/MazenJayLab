@@ -271,6 +271,7 @@ func Search(c *gin.Context) {
 	query.PerPage = param.PerPage
 
 	if res, err = searchServ.Search(c, query); err != nil || res == nil {
+		slog.Error("search failed", "err", err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -295,8 +296,15 @@ func CreateArticle(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-
-	go articleServ.ConvertMd(c, true, true, id)
+	go func() {
+		if e := articleServ.ConvertMd(c, true, true, id); e != nil {
+			slog.Warn("convert to markdown was failed", "err", e)
+			return
+		}
+		if e := searchServ.AddDocs(c, id); e != nil {
+			slog.Warn("article build index fail", "err", e)
+		}
+	}()
 
 	c.JSON(200, gin.H{
 		"id": id,
@@ -334,5 +342,19 @@ func RebuildIndex(c *gin.Context) {
 
 	c.JSON(200, gin.H{
 		"message": "index rebuilt",
+	})
+}
+
+func DelAllDocs(c *gin.Context) {
+	err := searchServ.DelIndex(c)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"message": err,
+		})
+		slog.Warn("del index failed", "error", err)
+	}
+
+	c.JSON(200, gin.H{
+		"message": "del all docs success",
 	})
 }

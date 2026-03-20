@@ -208,4 +208,5 @@ func (a *Article) GetSearchContent(ctx context.Context) (string, error) {
 }
 func (a *Article) GetSearchTags() []string       { return a.Tags }
 func (a *Article) GetSearchCreatedAt() time.Time { return a.CreatedAt }
-func (a *Article) GetIcon() string { return "/statics/images/article.png" }
+func (a *Article) GetIcon() string               { return "/statics/images/article.png" }
+func (a *Article) GetLink() string               { return a.Slug }

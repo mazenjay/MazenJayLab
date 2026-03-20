@@ -24,6 +24,7 @@ type repo struct {
 	mu        sync.RWMutex
 	writer    *blugelib.Writer
 	bilingual *analysis.Analyzer
+	path string
 }
 
 func New(indexPath string, analyzer *analysis.Analyzer) domain.SearchIndex {
@@ -40,7 +41,7 @@ func New(indexPath string, analyzer *analysis.Analyzer) domain.SearchIndex {
 		os.Exit(0)
 	}
 
-	return &repo{writer: writer, bilingual: analyzer}
+	return &repo{writer: writer, bilingual: analyzer, path: indexPath}
 }
 
 func (r *repo) Index(ctx context.Context, s domain.Searchable) error {
@@ -112,6 +113,27 @@ func (r *repo) Delete(_ context.Context, docType string, id uint) error {
 	return r.writer.Batch(batch)
 }
 
+func (r *repo) Reset() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.writer.Close(); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(r.path); err != nil {
+		return err
+	}
+
+	writer, err := blugelib.OpenWriter(blugelib.DefaultConfig(r.path))
+	if err != nil {
+		return err
+	}
+
+	r.writer = writer
+	return nil
+}
+
 func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.SearchResults, error) {
 	r.mu.RLock()
 	reader, err := r.writer.Reader()
@@ -158,7 +180,7 @@ func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.Search
 		}
 
 		var articleID int64
-		var title, summary, docType, icon string
+		var title, summary, docType, icon, link string
 		highlightMap := make(map[string][]string)
 
 		err = match.VisitStoredFields(func(field string, value []byte) bool {
@@ -173,6 +195,8 @@ func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.Search
 				articleID, _ = strconv.ParseInt(string(value), 10, 64)
 			case string(domain.FieldIcon):
 				icon = string(value)
+			case string(domain.FieldLink):
+				link = string(value)
 			case string(domain.FieldDocType):
 				docType = string(value)
 			case string(domain.FieldTitle):
@@ -202,6 +226,7 @@ func (r *repo) Search(ctx context.Context, q domain.SearchQuery) (*domain.Search
 			Summary:   summary,
 			Highlight: highlightMap,
 			Icon:      icon,
+			Link:      link,
 		})
 
 		curr++
@@ -226,6 +251,7 @@ func (r *repo) buildDocument(ctx context.Context, s domain.Searchable) *blugelib
 
 	doc.AddField(blugelib.NewKeywordField(string(domain.FieldDocType), s.GetSearchType()).StoreValue())
 	doc.AddField(blugelib.NewKeywordField(string(domain.FieldIcon), s.GetIcon()).StoreValue())
+	doc.AddField(blugelib.NewKeywordField(string(domain.FieldLink), s.GetLink()).StoreValue())
 	idStr := strconv.FormatInt(int64(s.GetSearchID()), 10)
 	// id field (stored, not analyzed)
 	doc.AddField(

@@ -157,3 +157,7 @@ func (*SearchService) RebuildIndex(ctx context.Context) error {
 	return nil
 
 }
+
+func (*SearchService) DelIndex(ctx context.Context) error {
+	return domain.DelDocs(ctx, "", -1)
+}

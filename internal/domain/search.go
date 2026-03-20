@@ -23,7 +23,8 @@ type Searchable interface {
 	GetSearchContent(ctx context.Context) (string, error) // 获取正文文本
 	GetSearchTags() []string                              // 获取标签
 	GetSearchCreatedAt() time.Time                        // 获取创建/发布时间
-	GetIcon() string									// 获取展示Icon
+	GetIcon() string                                      // 获取展示Icon
+	GetLink() string                                      // 获取link
 }
 
 type SearchIndex interface {
@@ -31,6 +32,7 @@ type SearchIndex interface {
 	Index(ctx context.Context, doc Searchable) error
 	IndexBatch(ctx context.Context, docs []Searchable) error
 	Delete(ctx context.Context, docType string, id uint) error
+	Reset() error
 	Search(ctx context.Context, query SearchQuery) (*SearchResults, error)
 }
 
@@ -149,7 +151,8 @@ func NewSearchQuery(keywords string, page, perPage int) (SearchQuery, error) {
 type IndexField string
 
 const (
-	FieldIcon IndexField = "icon"
+	FieldIcon      IndexField = "icon"
+	FieldLink      IndexField = "link"
 	FieldDocType   IndexField = "doc_type"
 	FieldID        IndexField = "id"
 	FieldTitle     IndexField = "title"
@@ -166,7 +169,8 @@ type SearchResult struct {
 	Title     string              `json:"title"`
 	Summary   string              `json:"summary"`
 	Highlight map[string][]string `json:"-"`
-	Icon string `json:"icon_url"`
+	Icon      string              `json:"icon"`
+	Link      string              `json:"link"`
 }
 
 type SearchResults struct {
@@ -213,4 +217,14 @@ func AddDocs(ctx context.Context, docs []Searchable) error {
 	}
 
 	return index.IndexBatch(ctx, docs)
+}
+
+func DelDocs(ctx context.Context, docType string, id uint) error {
+	if index == nil {
+		return NoSearchIndexErr
+	}
+	if id == -1 {
+		return index.Reset()
+	}
+	return index.Delete(ctx, docType, id)
 }
