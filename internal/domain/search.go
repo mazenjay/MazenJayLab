@@ -219,12 +219,12 @@ func AddDocs(ctx context.Context, docs []Searchable) error {
 	return index.IndexBatch(ctx, docs)
 }
 
-func DelDocs(ctx context.Context, docType string, id uint) error {
+func DelDocs(ctx context.Context, docType string, id *uint) error {
 	if index == nil {
 		return NoSearchIndexErr
 	}
-	if id == -1 {
+	if id == nil {
 		return index.Reset()
 	}
-	return index.Delete(ctx, docType, id)
+	return index.Delete(ctx, docType, *id)
 }
