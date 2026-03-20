@@ -83,12 +83,12 @@ func (*ArticleService) ConvertMd(ctx context.Context, force, publish bool, id ui
 	})
 }
 
-func (*ArticleService) Add(ctx context.Context, path string) (uint, error) {
+func (as *ArticleService) CreateArticle(ctx context.Context, path string) (uint, error) {
 	now := time.Now()
 	data := fmt.Sprintf("%s-%d", path, now.UnixNano())
 	sum := sha256.Sum256([]byte(data))
 	article := &domain.Article{
-		Slug: hex.EncodeToString(sum[:]),
+		Slug:      hex.EncodeToString(sum[:]),
 		Markdown:  path,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -96,6 +96,19 @@ func (*ArticleService) Add(ctx context.Context, path string) (uint, error) {
 	if err := domain.AddArticle(ctx, article); err != nil {
 		return 0, err
 	}
+
+	go func() {
+		if e := as.ConvertMd(ctx, true, true, article.ID); e != nil {
+			slog.Warn("convert to markdown was failed", "err", e)
+			return
+		}
+
+		if e := as.AddToSearchIndex(ctx, article.ID); e != nil {
+			slog.Warn("add to search index was failed", "err", e)
+		}
+
+	}()
+
 	return article.ID, nil
 }
 
@@ -116,5 +129,16 @@ func (*ArticleService) ManageArticleStatus(ctx context.Context, id uint, status 
 
 		article[0].IsPublished = status == "publish"
 		return repo.Update(ctx, article[0])
+	})
+}
+
+func (*ArticleService) AddToSearchIndex(ctx context.Context, id uint) error {
+	return domain.Do(ctx, func(uow domain.UnitOfWork) error {
+		repo := uow.Article()
+		ar, err := repo.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		return ar[0].AddToIndex(ctx)
 	})
 }

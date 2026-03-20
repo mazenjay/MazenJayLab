@@ -197,6 +197,11 @@ func (*Article) extractHtmlText(htmlStr string) (string, error) {
 	return strings.Join(strings.Fields(s), " "), nil
 }
 
+func (a *Article) AddToIndex(ctx context.Context) error {
+	s := [1]Searchable{a}
+	return AddDocs(ctx, s[:])
+}
+
 var _ Searchable = (*Article)(nil)
 
 func (a *Article) GetSearchID() uint        { return a.ID }

@@ -291,20 +291,11 @@ func CreateArticle(c *gin.Context) {
 		return
 	}
 
-	id, err := articleServ.Add(c, path)
+	id, err := articleServ.CreateArticle(c, path)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	go func() {
-		if e := articleServ.ConvertMd(c, true, true, id); e != nil {
-			slog.Warn("convert to markdown was failed", "err", e)
-			return
-		}
-		if e := searchServ.AddDocs(c, id); e != nil {
-			slog.Warn("article build index fail", "err", e)
-		}
-	}()
 
 	c.JSON(200, gin.H{
 		"id": id,
@@ -357,4 +348,29 @@ func DelAllDocs(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "del all docs success",
 	})
+}
+
+
+func AddArticleToIndex(c *gin.Context) {
+	var (
+		id int
+		err error
+	)
+	idStr := c.PostForm("id")
+
+
+	if id, err = strconv.Atoi(idStr); err == nil {
+		if err = articleServ.AddToSearchIndex(c, uint(id)); err == nil {
+			c.JSON(200, gin.H{
+				"message": "success",
+			})
+			return
+		}
+	}
+
+	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+		"message": err,
+	})
+
+
 }

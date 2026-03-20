@@ -41,20 +41,10 @@ func (*SearchService) Search(ctx context.Context, command SearchCommand) (*domai
 	return res, err
 }
 
-func (s *SearchService) AddDocs(ctx context.Context, ids ...uint) error {
-	if len(ids) == 0 {
-		return errors.New("ids is empty")
+func (s *SearchService) AddDocs(ctx context.Context, docs... domain.Searchable) error {
+	if len(docs) == 0 {
+		return errors.New("doc is empty")
 	}
-	articles, err := domain.GetArticle(ctx, ids...)
-	if err != nil {
-		return err
-	}
-
-	docs := make([]domain.Searchable, len(articles))
-	for idx, article := range articles {
-		docs[idx] = article
-	}
-
 	return domain.AddDocs(ctx, docs)
 }
 

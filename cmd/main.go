@@ -99,6 +99,7 @@ func startAdminServer() *http.Server {
 	engine.POST("/rebuild-index", api.RebuildIndex)
 	engine.POST("/article/:id/:status", api.ManageArticleStatus)
 	engine.POST("/del-index", api.DelAllDocs)
+	engine.POST("/add-article-index", api.AddArticleToIndex)
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", config.Cfg.App.Port+1),
