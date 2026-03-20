@@ -4,6 +4,7 @@ import "context"
 
 type UnitOfWork interface {
 	Article() ArticleRepository
+	Project() ProjectRepository
 	Do(context.Context, func(UnitOfWork) error) error
 }
 
@@ -26,6 +27,8 @@ func InitRepo(u UnitOfWork) {
 func ArticleRepo() ArticleRepository {
 	return uow.Article()
 }
+
+func ProjectRepo() ProjectRepository { return uow.Project() }
 
 func Do(ctx context.Context, fn func(UnitOfWork) error) error {
 	return uow.Do(ctx, fn)
