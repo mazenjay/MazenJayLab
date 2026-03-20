@@ -102,7 +102,7 @@ func startAdminServer() *http.Server {
 	engine.POST("/add-article-index", api.AddArticleToIndex)
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("127.0.0.1:%d", config.Cfg.App.Port+1),
+		Addr:    fmt.Sprintf(":%d", 7700),
 		Handler: engine,
 	}
 
