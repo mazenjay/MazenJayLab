@@ -2,15 +2,15 @@ package sqlite3
 
 import (
 	"context"
+	"gorm.io/driver/sqlite"
 	"testing"
 
 	"mjlab/internal/domain"
 
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func setupTestDB(t *testing.T) *gorm.DB {
+func setupArticleTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open db: %v", err)
@@ -38,7 +38,7 @@ func seedTestData(t *testing.T, db *gorm.DB) {
 }
 
 func TestArticleRepo_CRUD(t *testing.T) {
-	db := setupTestDB(t)
+	db := setupArticleTestDB(t)
 	seedTestData(t, db)
 
 	repo := &ArticleRepo{db: db}

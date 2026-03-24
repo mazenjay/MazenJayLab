@@ -3,10 +3,8 @@ package sqlite3
 import (
 	"context"
 	"errors"
-	"mjlab/internal/domain"
-	"strings"
-
 	"gorm.io/gorm"
+	"mjlab/internal/domain"
 )
 
 var _ domain.ArticleRepository = (*ArticleRepo)(nil)
@@ -68,28 +66,6 @@ func (r *ArticleRepo) List(ctx context.Context, query domain.Query) ([]*domain.A
 	return articles, total, nil
 }
 
-func buildOrderClause(query domain.Query) string {
-	allowedSort := map[string]string{
-		"id":         "id",
-		"title":      "title",
-		"view_count": "view_count",
-		"created_at": "created_at",
-		"updated_at": "updated_at",
-	}
-
-	field, ok := allowedSort[strings.ToLower(query.Sort)]
-	if !ok {
-		field = "id"
-	}
-
-	order := "ASC"
-	if strings.ToLower(query.SortOrder) == "desc" {
-		order = "DESC"
-	}
-
-	return field + " " + order
-}
-
 func (r *ArticleRepo) Save(ctx context.Context, article *domain.Article) error {
 	return r.db.WithContext(ctx).
 		Create(article).Error
@@ -103,6 +79,7 @@ func (r *ArticleRepo) Update(ctx context.Context, article *domain.Article) error
 	return r.db.WithContext(ctx).
 		Model(&domain.Article{}).
 		Where("id = ?", article.ID).
+		Select("is_published", "html", "markdown").
 		Updates(article).Error
 }
 

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"mjlab/internal/domain"
 	"os"
+	"strings"
 )
 
 func New(source string) *SQLite {
@@ -43,4 +44,25 @@ func (s *SQLite) Do(ctx context.Context, fn func(uow domain.UnitOfWork) error) e
 		txUow := &SQLite{db: tx}
 		return fn(txUow)
 	})
+}
+
+
+func buildOrderClause(query domain.Query) string {
+	allowedSort := map[string]string{
+		"id":         "id",
+		"created_at": "created_at",
+		"sort_order" : "sort_order",
+	}
+
+	field, ok := allowedSort[strings.ToLower(query.Sort)]
+	if !ok {
+		field = "id"
+	}
+
+	order := "ASC"
+	if strings.ToLower(query.SortOrder) == "desc" {
+		order = "DESC"
+	}
+
+	return field + " " + order
 }

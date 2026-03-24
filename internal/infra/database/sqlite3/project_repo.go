@@ -2,7 +2,6 @@ package sqlite3
 
 import (
 	"context"
-	"fmt"
 	"gorm.io/gorm"
 	"mjlab/internal/domain"
 )
@@ -11,10 +10,9 @@ type ProjectRepo struct {
 	db *gorm.DB
 }
 
-
 // Get 根据传入的一个或多个 ID 获取作品列表
 func (r *ProjectRepo) Get(ctx context.Context, ids ...uint) ([]*domain.Project, error) {
-	var projects[]*domain.Project
+	var projects []*domain.Project
 
 	if len(ids) == 0 {
 		return projects, nil
@@ -31,7 +29,7 @@ func (r *ProjectRepo) Get(ctx context.Context, ids ...uint) ([]*domain.Project, 
 
 // List 根据 Query 条件查询作品列表，并返回总记录数和数据
 func (r *ProjectRepo) List(ctx context.Context, q domain.Query) ([]*domain.Project, int64, error) {
-	var projects[]*domain.Project
+	var projects []*domain.Project
 	var total int64
 
 	// 初始化一个查询会话
@@ -50,18 +48,9 @@ func (r *ProjectRepo) List(ctx context.Context, q domain.Query) ([]*domain.Proje
 	}
 
 	// 3. 处理排序规则
-	if q.Sort != "" {
-		orderStr := q.Sort
-		// 如果指定了排序方向 (desc/asc)
-		if q.SortOrder == "desc" || q.SortOrder == "DESC" {
-			orderStr = fmt.Sprintf("%s DESC", q.Sort)
-		} else if q.SortOrder == "asc" || q.SortOrder == "ASC" {
-			orderStr = fmt.Sprintf("%s ASC", q.Sort)
-		}
-		db = db.Order(orderStr)
-	} else {
-		// 默认排序：优先按照自定义权重排序，然后按创建时间倒序
-		db = db.Order("sort_order DESC, created_at DESC")
+	orderClause := buildOrderClause(q)
+	if orderClause != "" {
+		db = db.Order(orderClause)
 	}
 
 	// 4. 处理分页 (Offset 和 Limit)
@@ -88,9 +77,11 @@ func (r *ProjectRepo) Save(ctx context.Context, p *domain.Project) error {
 
 // Update 更新作品的所有字段
 func (r *ProjectRepo) Update(ctx context.Context, p *domain.Project) error {
-	// 注意：Save 在 GORM 中会保存所有的字段，即使是零值。
-	// 如果你只想更新非零值字段，请使用 Updates(p)
-	return r.db.WithContext(ctx).Save(p).Error
+	return r.db.WithContext(ctx).
+		Model(&domain.Project{}).
+		Where("id = ?", p.ID).
+		Select("sort_order", "repo_url", "launch_url").
+		Updates(p).Error
 }
 
 // Delete 根据 ID 软删除一个作品 (如果模型包含 gorm.DeletedAt 字段)
