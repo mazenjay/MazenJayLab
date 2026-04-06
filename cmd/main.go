@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"mjlab/api"
 	"mjlab/internal/domain"
@@ -12,7 +11,6 @@ import (
 	"mjlab/internal/infra/database/sqlite3"
 	"mjlab/internal/infra/oos/local"
 	"mjlab/internal/infra/search"
-	"mjlab/web"
 	"net/http"
 	"os"
 	"os/signal"
@@ -61,10 +59,6 @@ func main() {
 func startUserServer() *http.Server {
 	engine := gin.Default()
 	engine.Use(api.Options)
-	staticFS, _ := fs.Sub(web.Statics, "statics")
-	engine.StaticFS("/statics", http.FS(staticFS))
-
-	engine.LoadHTMLFS(http.FS(web.Statics), "template/*.html")
 
 	engine.GET("/:slug", api.ShowArticle)
 
