@@ -88,7 +88,7 @@ func startUserServer() *http.Server {
 func startAdminServer() *http.Server {
 
 	engine := gin.Default()
-	engine.Use(api.RSAVerifyMiddleware())
+	// engine.Use(api.RSAVerifyMiddleware())
 	engine.POST("/article", api.CreateArticle)
 	engine.POST("/project", api.AddProject)
 	engine.POST("/rebuild-index", api.RebuildIndex)
@@ -97,7 +97,7 @@ func startAdminServer() *http.Server {
 	engine.POST("/add-article-index", api.AddArticleToIndex)
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", 7700),
+		Addr:    fmt.Sprintf("127.0.0.1:%d", 7700),
 		Handler: engine,
 	}
 
