@@ -6,10 +6,10 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"log/slog"
 	"mjlab/api/model"
@@ -25,6 +25,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func init() {
+	articleServ = &application.ArticleService{}
+	searchServ = &application.SearchService{}
+	proServ = &application.ProjectService{}
+}
 
 func Options(c *gin.Context) {
 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -122,7 +128,7 @@ func RSAVerifyMiddleware() gin.HandlerFunc {
 		var bodyHash string
 		if c.Request.Body != nil && c.Request.ContentLength > 0 {
 			body, _ := io.ReadAll(c.Request.Body)
-			io.NopCloser(strings.NewReader(string(body)))
+			c.Request.Body = io.NopCloser(strings.NewReader(string(body)))
 			h := sha256.Sum256(body)
 			bodyHash = base64.StdEncoding.EncodeToString(h[:])
 		}
@@ -166,61 +172,15 @@ func RSAVerifyMiddleware() gin.HandlerFunc {
 var (
 	articleServ *application.ArticleService
 	searchServ  *application.SearchService
-
-	IndexFunc = template.FuncMap{
-		"animDelay": func(index int) string {
-			return fmt.Sprintf("%.2fs", float64(index)*0.05)
-		},
-		"gridClass": func(index int) string {
-			blueprint1 := []string{
-				"md:col-span-2 md:row-span-2", // 0
-				"md:col-span-1 md:row-span-1", // 1
-				"md:col-span-1 md:row-span-1", // 2
-				"md:col-span-1 md:row-span-1", // 3
-				"md:col-span-1 md:row-span-1", // 4
-				"md:col-span-2 md:row-span-1", // 5
-				"md:col-span-2 md:row-span-1", // 6
-			}
-			if index < len(blueprint1) {
-				return blueprint1[index]
-			}
-			return "md:col-span-1 md:row-span-1"
-		},
-	}
+	proServ     *application.ProjectService
 )
-
-func Index(c *gin.Context) {
-	var (
-		hasMore bool
-		query   domain.Query
-	)
-	const pageSize = 7
-
-	query.SortOrder = "desc"
-	query.Sort = "created_at"
-	query.Limit = pageSize + 1
-	records, total := articleServ.Pagination(c, query)
-	hasMore = len(records) > pageSize
-
-	pages := total / pageSize
-	if pages*pageSize < total {
-		pages += 1
-	}
-
-	c.HTML(http.StatusOK, "index.html", &gin.H{
-		"Articles":   records[:min(len(records), pageSize)],
-		"HasMore":    hasMore,
-		"TotalPages": pages,
-	})
-
-}
 
 func ArticlePagination(c *gin.Context) {
 	var (
 		query domain.Query
 		err   error
 	)
-	const pageSize = 7
+	const pageSize = 5
 	query.Sort = c.DefaultQuery("sort", "created_at")
 	query.SortOrder = c.DefaultQuery("sort_order", "desc")
 	query.Keywords = c.DefaultQuery("keywords", "")
@@ -237,13 +197,14 @@ func ArticlePagination(c *gin.Context) {
 
 func ShowArticle(c *gin.Context) {
 	slug := c.Param("slug")
-	path := filepath.Join(config.Cfg.Article.OutputDir, slug+".html")
-	if _, err := os.Stat(path); err != nil {
+	path := filepath.Join("article", slug+".html")
+	article, err := articleServ.ShowArticle(c, path)
+	if err != nil {
 		c.String(404, "article not found")
 		return
 	}
-
-	c.File(path)
+	defer article.Close()
+	c.DataFromReader(http.StatusOK, -1, "text/html", article, nil)
 }
 
 func Search(c *gin.Context) {
@@ -350,14 +311,12 @@ func DelAllDocs(c *gin.Context) {
 	})
 }
 
-
 func AddArticleToIndex(c *gin.Context) {
 	var (
-		id int
+		id  int
 		err error
 	)
 	idStr := c.PostForm("id")
-
 
 	if id, err = strconv.Atoi(idStr); err == nil {
 		if err = articleServ.AddToSearchIndex(c, uint(id)); err == nil {
@@ -372,5 +331,72 @@ func AddArticleToIndex(c *gin.Context) {
 		"message": err,
 	})
 
+}
 
+func GetProjectIcon(c *gin.Context) {
+	slug := c.Param("path")
+	rel := filepath.Join("upload", slug+".jpeg")
+	data, err := proServ.GetAppIcon(c, rel)
+	if err != nil {
+		c.String(http.StatusNotFound, "icon not found")
+		return
+	}
+
+	c.Data(http.StatusOK, "image/jpeg", data)
+}
+
+func GetProjects(c *gin.Context) {
+	projects, err := proServ.GetProjects(c)
+	if err != nil {
+		slog.Warn("get projects failed", "error", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"projects": projects,
+	})
+}
+
+func AddProject(c *gin.Context) {
+	raw := c.PostForm("project")
+	if raw == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "project field required"})
+		return
+	}
+
+	var param model.ProjectCreateParam
+	if err := json.Unmarshal([]byte(raw), &param); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid project json"})
+		return
+	}
+
+	project, err := application.ProjectFromCreateParam(param)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var icon []byte
+	if fh, err := c.FormFile("icon"); err == nil && fh != nil {
+		f, err := fh.Open()
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "open icon failed"})
+			return
+		}
+		icon, err = io.ReadAll(f)
+		_ = f.Close()
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "read icon failed"})
+			return
+		}
+	}
+
+	if err := proServ.Add(c, project, icon); err != nil {
+		slog.Warn("add project failed", "error", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"id": project.ID})
 }

@@ -30,6 +30,7 @@ func (*ArticleService) Pagination(ctx context.Context, query domain.Query) ([]*m
 			Title:   val.Title,
 			Summary: val.Summary,
 			Tags:    val.Tags,
+			Date:    val.CreatedAt.Format("2006-01-02"),
 			Slug:    val.Slug,
 		}
 	}
@@ -141,4 +142,8 @@ func (*ArticleService) AddToSearchIndex(ctx context.Context, id uint) error {
 		}
 		return ar[0].AddToIndex(ctx)
 	})
+}
+
+func (*ArticleService) ShowArticle(ctx context.Context, path string) (*domain.OSSFile, error) {
+	return domain.DownloadFile(ctx, path)
 }

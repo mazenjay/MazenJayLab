@@ -64,16 +64,16 @@ func startUserServer() *http.Server {
 	staticFS, _ := fs.Sub(web.Statics, "statics")
 	engine.StaticFS("/statics", http.FS(staticFS))
 
-	engine.SetFuncMap(api.IndexFunc)
 	engine.LoadHTMLFS(http.FS(web.Statics), "template/*.html")
 
-	engine.GET("/", api.Index)
 	engine.GET("/:slug", api.ShowArticle)
 
 	rg := engine.Group("/api")
 	{
 		rg.GET("/search", api.Search)
 		rg.GET("/articles", api.ArticlePagination)
+		rg.GET("/icon/:path", api.GetProjectIcon)
+		rg.GET("/projects", api.GetProjects)
 	}
 
 	srv := &http.Server{
@@ -96,6 +96,7 @@ func startAdminServer() *http.Server {
 	engine := gin.Default()
 	engine.Use(api.RSAVerifyMiddleware())
 	engine.POST("/article", api.CreateArticle)
+	engine.POST("/project", api.AddProject)
 	engine.POST("/rebuild-index", api.RebuildIndex)
 	engine.POST("/article/:id/:status", api.ManageArticleStatus)
 	engine.POST("/del-index", api.DelAllDocs)

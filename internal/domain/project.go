@@ -29,6 +29,9 @@ type Project struct {
 
 	// 排序权重 (数字越大越靠前，或者越小越靠前，用于手动控制展示顺序)
 	SortOrder int `gorm:"default:0" json:"sort_order"`
+
+	// TechsJSON 存储前端 Project.techs 的 JSON 数组，例如 [{"name":"Go","icon":"ri-code-box-line"}]
+	TechsJSON string `gorm:"type:text" json:"-"`
 }
 
 func (*Project) TableName() string {

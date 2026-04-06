@@ -23,7 +23,7 @@ func New(source string) *SQLite {
 	)
 
 	if err != nil {
-		slog.Error("failed to auto migrate database","error", err)
+		slog.Error("failed to auto migrate database", "error", err)
 		os.Exit(1)
 	}
 	return &SQLite{db: db}
@@ -46,12 +46,11 @@ func (s *SQLite) Do(ctx context.Context, fn func(uow domain.UnitOfWork) error) e
 	})
 }
 
-
 func buildOrderClause(query domain.Query) string {
 	allowedSort := map[string]string{
 		"id":         "id",
 		"created_at": "created_at",
-		"sort_order" : "sort_order",
+		"sort_order": "sort_order",
 	}
 
 	field, ok := allowedSort[strings.ToLower(query.Sort)]
@@ -59,9 +58,9 @@ func buildOrderClause(query domain.Query) string {
 		field = "id"
 	}
 
-	order := "ASC"
-	if strings.ToLower(query.SortOrder) == "desc" {
-		order = "DESC"
+	order := "DESC"
+	if strings.ToLower(query.SortOrder) == "asc" {
+		order = "ASC"
 	}
 
 	return field + " " + order
