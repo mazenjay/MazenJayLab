@@ -2,6 +2,16 @@
 env = "debug"   # 开发模式 debug, 生产模式 release
 port = "8080"   # 服务端口
 
+[log]
+# file 省略时使用 ~/.mjlab/logs/app.log
+# file = "/path/to/app.log"
+max_size_mb = 100      # 单文件大小上限（MB），超过后滚动为新文件
+max_backups = 10       # 最多保留几个历史文件
+max_age_days = 0      # 超过 N 天的历史日志删除；0 表示仅按 max_backups 清理
+compress = true       # 滚动后的文件是否 gzip
+console = true        # 是否同时打印到终端（部署为 systemd 时可改 false）
+level = "debug"       # debug / info / warn / error
+
 [database]
 # 驱动类型: sqlite, mysql, postgres
 driver = "sqlite"
