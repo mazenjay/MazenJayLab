@@ -13,7 +13,7 @@ import (
 func New(source string) *SQLite {
 	db, err := gorm.Open(sqlite.Open(source), &gorm.Config{})
 	if err != nil {
-		slog.Error("Failed to connect to database", "error", err)
+		slog.Error("Failed to connect to database", "source", source, "error", err)
 		os.Exit(1)
 	}
 
