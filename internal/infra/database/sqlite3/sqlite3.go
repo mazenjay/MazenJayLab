@@ -13,7 +13,7 @@ import (
 
 func New(source string) *SQLite {
 	dir := filepath.Dir(source)
-	
+
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		slog.Error("Failed to create database directory", "dir", dir, "error", err)
 		os.Exit(1)

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -46,7 +47,19 @@ func main() {
 	oss = local.New(config.Cfg.WorkDir)
 	uow = sqlite3.New(config.Cfg.Database.Source)
 
-	jb := gojieba.NewJieba()
+	var jb *gojieba.Jieba
+	if config.Mode == "release" {
+		dictDir := filepath.Join(config.WorkDir, "dict")
+		jb = gojieba.NewJieba(
+			filepath.Join(dictDir, "jieba.dict.utf8"),
+			filepath.Join(dictDir, "hmm_model.utf8"),
+			filepath.Join(dictDir, "user.dict.utf8"),
+			filepath.Join(dictDir, "idf.utf8"),
+			filepath.Join(dictDir, "stop_words.utf8"),
+		)
+	} else {
+		jb = gojieba.NewJieba()
+	}
 	defer jb.Free()
 	sg = search.New(config.Cfg.Search.IndexPath, search.NewJiebaAnalyzer(jb))
 
@@ -73,6 +86,7 @@ func main() {
 func startUserServer() *http.Server {
 	engine := gin.Default()
 	engine.Use(api.Options)
+	engine.StaticFile("/static/app.css", filepath.Join(config.WorkDir, "app.css"))
 
 	engine.GET("/:slug", api.ShowArticle)
 

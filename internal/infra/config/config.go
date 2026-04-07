@@ -10,15 +10,14 @@ import (
 )
 
 func init() {
+	initVar()
+
+	// read configure file
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
-
-	home, _ := os.UserHomeDir()
-	configDir := filepath.Join(home, ".mjlab")
 	viper.AddConfigPath(".")
-	viper.AddConfigPath(configDir)
-
-	viper.SetEnvPrefix("MJLAB")
+	viper.AddConfigPath(WorkDir)
+	viper.SetEnvPrefix("MJ")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
@@ -30,18 +29,19 @@ func init() {
 		os.Exit(1)
 	}
 
-	if home, err := os.UserHomeDir(); err == nil {
-		if err = os.MkdirAll(filepath.Join(home, ".mjlab"), os.ModePerm); err != nil {
-			panic(err)
-		}
-
-		Cfg.WorkDir = filepath.Join(home, ".mjlab")
-		Cfg.Database.Source = ProcessPath(Cfg.Database.Source, "~/.mjlab/data/mazenjay.db")
-		Cfg.Article.OutputDir = ProcessPath(Cfg.Article.OutputDir, "~/.mjlab/article")
-		Cfg.Article.Template = ProcessPath(Cfg.Article.Template, "~/.mjlab/template.html")
-		Cfg.Search.IndexPath = ProcessPath(Cfg.Search.IndexPath, "~/.mjlab/index")
-		Cfg.Log.File = ProcessPath(Cfg.Log.File, "~/.mjlab/logs/app.log")
-	}
+	var (
+		db      = filepath.Join(WorkDir, "data", "db")
+		article = filepath.Join(WorkDir, "article")
+		templ   = filepath.Join(WorkDir, "template.html")
+		index   = filepath.Join(WorkDir, "index")
+		logf    = filepath.Join(WorkDir, "logs", "app.log")
+	)
+	Cfg.App.Env = Mode
+	Cfg.Database.Source = ProcessPath(Cfg.Database.Source, db)
+	Cfg.Article.OutputDir = ProcessPath(Cfg.Article.OutputDir, article)
+	Cfg.Article.Template = ProcessPath(Cfg.Article.Template, templ)
+	Cfg.Search.IndexPath = ProcessPath(Cfg.Search.IndexPath, index)
+	Cfg.Log.File = ProcessPath(Cfg.Log.File, logf)
 
 }
 
@@ -103,7 +103,12 @@ func ProcessPath(path string, defaultPath string) string {
 
 	if path == "" {
 		if strings.HasPrefix(defaultPath, "~") {
-			return strings.Replace(defaultPath, "~", home, 1)
+			defaultPath = strings.Replace(defaultPath, "~", home, 1)
+		}
+		dir := filepath.Dir(defaultPath)
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			panic(err)
 		}
 
 		return defaultPath
