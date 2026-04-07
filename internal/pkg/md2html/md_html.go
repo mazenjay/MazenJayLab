@@ -3,6 +3,7 @@ package md2html
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/alecthomas/chroma/formatters/html"
@@ -36,6 +37,11 @@ type Document struct {
 	Date        time.Time
 	HTML        string
 	TOC         string
+
+	// SEO（可选，来自 frontmatter）
+	CanonicalURL string // canonical / canonical_url：规范链接，建议绝对 URL
+	Image        string // image / cover：Open Graph / Twitter 分享图
+	Author       string // author：作者名
 }
 
 func newMarkdown() goldmark.Markdown {
@@ -118,6 +124,75 @@ func fillMetadata(a *Document, m map[string]interface{}) {
 	if v, ok := m["slug"].(string); ok {
 		a.Slug = v
 	}
+	if v, ok := m["canonical"].(string); ok {
+		a.CanonicalURL = v
+	}
+	if v, ok := m["canonical_url"].(string); ok && a.CanonicalURL == "" {
+		a.CanonicalURL = v
+	}
+	if v, ok := m["image"].(string); ok {
+		a.Image = v
+	}
+	if v, ok := m["cover"].(string); ok && a.Image == "" {
+		a.Image = v
+	}
+	if v, ok := m["author"].(string); ok {
+		a.Author = v
+	}
+}
+
+// jsonLD 输出 BlogPosting 结构化数据（供模板 <script type="application/ld+json">）
+func jsonLD(d *Document) template.JS {
+	if d == nil {
+		return template.JS("{}")
+	}
+	authorName := d.Author
+	if authorName == "" {
+		authorName = "MazenJay"
+	}
+	desc := d.Description
+	if desc == "" && d.Title != "" {
+		desc = d.Title
+	}
+	obj := map[string]interface{}{
+		"@context":   "https://schema.org",
+		"@type":      "BlogPosting",
+		"headline":   d.Title,
+		"inLanguage": "zh-CN",
+		"author": map[string]string{
+			"@type": "Person",
+			"name":  authorName,
+		},
+		"publisher": map[string]interface{}{
+			"@type": "Organization",
+			"name":  "MazenJay Lab",
+		},
+	}
+	if desc != "" {
+		obj["description"] = desc
+	}
+	if !d.Date.IsZero() {
+		obj["datePublished"] = d.Date.UTC().Format(time.RFC3339)
+		obj["dateModified"] = d.Date.UTC().Format(time.RFC3339)
+	}
+	if d.Image != "" {
+		obj["image"] = []string{d.Image}
+	}
+	if d.CanonicalURL != "" {
+		obj["mainEntityOfPage"] = map[string]string{
+			"@type": "WebPage",
+			"@id":   d.CanonicalURL,
+		}
+		obj["url"] = d.CanonicalURL
+	}
+	if len(d.Tags) > 0 {
+		obj["keywords"] = strings.Join(d.Tags, ", ")
+	}
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return template.JS("{}")
+	}
+	return template.JS(b)
 }
 
 // 优化后的 TOC 提取
@@ -181,7 +256,8 @@ func (doc *Document) GenerateStaticHTML(ctx context.Context, templatePath string
 		ctx = context.Background()
 	}
 	funcMap := template.FuncMap{
-		"safe": func(s string) template.HTML { return template.HTML(s) },
+		"safe":   func(s string) template.HTML { return template.HTML(s) },
+		"jsonld": jsonLD,
 	}
 	tName := filepath.Base(templatePath)
 	tmpl, err := template.New(tName).Funcs(funcMap).ParseFiles(templatePath)
