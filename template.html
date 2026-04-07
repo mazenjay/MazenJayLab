@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .Title}}{{.Title}}{{else}}Untitled{{end}} · MazenJay Lab</title>
+
+    <!-- SEO 可选 frontmatter：canonical / canonical_url、image / cover、author -->
+    <!-- 基础 SEO -->
+    <meta name="application-name" content="MazenJay Lab">
+    <meta name="author" content="{{if .Author}}{{.Author}}{{else}}MazenJay{{end}}">
+    {{if .Description}}
+    <meta name="description" content="{{.Description}}">
+    {{else}}{{if .Title}}<meta name="description" content="{{.Title}} — MazenJay Lab">{{end}}{{end}}
+    {{if .Tags}}<meta name="keywords" content="{{range $i, $t := .Tags}}{{if $i}}, {{end}}{{$t}}{{end}}">{{end}}
+    {{if .Draft}}
+    <meta name="robots" content="noindex, nofollow">
+    {{else}}
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    {{end}}
+    <meta name="theme-color" content="#faf7f2">
+    <meta name="color-scheme" content="light">
+
+    {{if .CanonicalURL}}<link rel="canonical" href="{{.CanonicalURL}}">{{end}}
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="MazenJay Lab">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:title" content="{{if .Title}}{{.Title}}{{else}}Untitled{{end}}">
+    {{if .Description}}
+    <meta property="og:description" content="{{.Description}}">
+    {{else}}{{if .Title}}<meta property="og:description" content="{{.Title}} — MazenJay Lab">{{end}}{{end}}
+    {{if .CanonicalURL}}<meta property="og:url" content="{{.CanonicalURL}}">{{end}}
+    {{if .Image}}<meta property="og:image" content="{{.Image}}">{{end}}
+    {{if .Image}}<meta property="og:image:alt" content="{{if .Title}}{{.Title}}{{else}}MazenJay Lab{{end}}">{{end}}
+
+    <!-- Twitter / X -->
+    {{if .Image}}
+    <meta name="twitter:card" content="summary_large_image">
+    {{else}}
+    <meta name="twitter:card" content="summary">
+    {{end}}
+    <meta name="twitter:title" content="{{if .Title}}{{.Title}}{{else}}Untitled{{end}}">
+    {{if .Description}}<meta name="twitter:description" content="{{.Description}}">{{else}}{{if .Title}}<meta name="twitter:description" content="{{.Title}} — MazenJay Lab">{{end}}{{end}}
+    {{if .Image}}<meta name="twitter:image" content="{{.Image}}">{{end}}
+
+    {{if not .Date.IsZero}}
+    <meta property="article:published_time" content="{{.Date.Format "2006-01-02T15:04:05Z07:00"}}">
+    <meta property="article:modified_time" content="{{.Date.Format "2006-01-02T15:04:05Z07:00"}}">
+    {{end}}
+    <meta property="article:author" content="{{if .Author}}{{.Author}}{{else}}MazenJay{{end}}">
+    {{range .Tags}}<meta property="article:tag" content="{{.}}">{{end}}
+
+    <!-- 结构化数据 JSON-LD -->
+    <script type="application/ld+json">{{jsonld .}}</script>
+
+    <!-- 由 tailwind/ 构建：npm run build（输出 static/css/app.css）；Nginx 需映射 /static/ 到仓库 static/ 目录 -->
+    <link rel="stylesheet" href="/static/css/app.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --read-max: 42rem;
+        }
+
+        body {
+            background-color: #faf7f2;
+            color: #141414;
+        }
+
+        #read-progress {
+            transform-origin: left;
+            transition: width 0.05s linear;
+        }
+
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cfc8bc; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a090; }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in-up {
+            animation: fade-in-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            opacity: 0;
+        }
+        .delay-1 { animation-delay: 0.08s; }
+        .delay-2 { animation-delay: 0.16s; }
+        .delay-3 { animation-delay: 0.24s; }
+
+        /* 目录：与 goldmark 输出的 <ul class="toc"> 对齐 */
+        ul.toc {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            border-left: 2px solid #e8e4dc;
+        }
+        ul.toc > li {
+            margin: 0;
+            padding: 0;
+            line-height: 1.35;
+        }
+        ul.toc a {
+            display: block;
+            padding: 0.45rem 0 0.45rem 1rem;
+            font-size: 0.876rem;
+            color: #5c5c5c;
+            border-radius: 0 0.5rem 0.5rem 0;
+            transition: color 0.15s, background 0.15s, transform 0.15s;
+        }
+        ul.toc a:hover {
+            color: #8f3d28;
+            background: #f4e8e4;
+            transform: translateX(2px);
+        }
+
+        .chroma-hack .chroma,
+        .chroma-hack .prose pre {
+            background-color: transparent !important;
+            background: transparent !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+        }
+        .chroma-hack .chroma table { border: none !important; margin: 0 !important; width: 100%; }
+        .chroma-hack .chroma td { border: none !important; padding: 0 !important; }
+        .chroma-hack .chroma td:first-child {
+            opacity: 0.4;
+            user-select: none;
+            -webkit-user-select: none;
+            padding-right: 15px !important;
+            text-align: right;
+            width: 40px;
+        }
+
+        /* 正文：博客式强调 */
+        .blog-prose.prose {
+            --tw-prose-body: #2d2d2d;
+            --tw-prose-headings: #141414;
+            --tw-prose-links: #c45c3e;
+            --tw-prose-bold: #141414;
+            --tw-prose-quotes: #4a4a4a;
+            --tw-prose-quote-borders: #c45c3e;
+            --tw-prose-captions: #737373;
+        }
+        .blog-prose.prose h2 {
+            font-family: Fraunces, Georgia, serif;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-top: 2.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #e8e4dc;
+        }
+        .blog-prose.prose h3 {
+            font-family: Fraunces, Georgia, serif;
+            font-weight: 600;
+            letter-spacing: -0.015em;
+        }
+        .blog-prose.prose blockquote {
+            font-style: italic;
+            border-left-width: 3px;
+            background: linear-gradient(90deg, rgba(196, 92, 62, 0.06) 0%, transparent 100%);
+            padding: 1rem 1.25rem;
+            border-radius: 0 0.75rem 0.75rem 0;
+        }
+        .blog-prose.prose code:not(pre code) {
+            font-size: 0.875em;
+            font-weight: 500;
+            color: #8f3d28;
+            background: #f4e8e4;
+            padding: 0.15em 0.4em;
+            border-radius: 0.35rem;
+        }
+        .blog-prose.prose img {
+            border-radius: 0.75rem;
+            box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.18);
+        }
+    </style>
+</head>
+<body class="antialiased font-sans text-ink overflow-x-hidden selection:bg-accent-soft selection:text-accent-deep">
+
+    <div class="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-paper-line">
+        <div id="read-progress" class="h-full w-0 bg-gradient-to-r from-accent to-amber-600"></div>
+    </div>
+
+    <!-- 柔和纸张质感背景 -->
+    <div class="fixed inset-0 -z-10 pointer-events-none">
+        <div class="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(196,92,62,0.07),transparent_55%)]"></div>
+        <div class="absolute inset-0 opacity-[0.35] mix-blend-multiply" style="background-image:url('data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.04%22/%3E%3C/svg%3E');"></div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-10 md:py-14 flex flex-col lg:flex-row gap-10 lg:gap-14 min-h-screen">
+
+        {{if .TOC}}
+        <aside class="w-full lg:w-64 shrink-0 order-2 lg:order-1 fade-in-up delay-1">
+            <div class="lg:sticky lg:top-12 rounded-2xl border border-paper-line bg-paper-raised/90 backdrop-blur-md shadow-[0_4px_24px_-8px_rgba(0,0,0,0.08)] p-5">
+                <p class="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-ink-faint mb-3">Outline</p>
+                <h2 class="font-display text-lg font-semibold text-ink leading-snug mb-4">本文目录</h2>
+                <nav aria-label="目录" class="max-h-[min(60vh,28rem)] overflow-y-auto overscroll-contain pr-1 -mr-1">
+                    {{.TOC | safe}}
+                </nav>
+            </div>
+        </aside>
+        {{end}}
+
+        <main class="flex-1 min-w-0 order-1 lg:order-2 fade-in-up">
+            <article class="rounded-[1.75rem] border border-paper-line bg-paper-raised/95 shadow-[0_20px_50px_-24px_rgba(20,20,20,0.12)] overflow-hidden">
+                <div class="h-1 bg-gradient-to-r from-accent via-amber-500 to-rose-400 opacity-90"></div>
+
+                <div class="px-6 sm:px-10 md:px-12 py-10 md:py-14">
+                    <header class="mb-10 md:mb-12 pb-10 border-b border-paper-line fade-in-up delay-2">
+                        <p class="text-sm font-medium text-accent mb-3 flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5">
+                                <i class="ri-quill-pen-line text-base"></i>
+                                MazenJay Lab
+                            </span>
+                            {{if .Draft}}
+                            <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 border border-amber-200/80">草稿</span>
+                            {{end}}
+                        </p>
+
+                        <h1 class="font-display text-[2rem] sm:text-[2.5rem] md:text-[2.75rem] font-bold tracking-tight text-ink leading-[1.15] mb-5">
+                            {{if .Title}}{{.Title}}{{else}}Untitled{{end}}
+                        </h1>
+
+                        {{if .Description}}
+                        <p class="text-lg text-ink-muted leading-relaxed max-w-2xl mb-6">{{.Description}}</p>
+                        {{end}}
+
+                        <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
+                            <span class="inline-flex items-center gap-2">
+                                <span class="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-amber-600 text-white flex items-center justify-center text-xs shadow-md">
+                                    <i class="ri-user-smile-line"></i>
+                                </span>
+                                <span class="font-medium text-ink">MazenJay</span>
+                            </span>
+                            {{if not .Date.IsZero}}
+                            <span class="inline-flex items-center gap-1.5">
+                                <i class="ri-calendar-2-line text-ink-faint"></i>
+                                <time datetime='{{.Date.Format "2006-01-02"}}'>{{.Date.Format "2006 年 1 月 2 日"}}</time>
+                            </span>
+                            {{end}}
+                            <span class="inline-flex items-center gap-1.5 text-ink-faint read-time" hidden>
+                                <i class="ri-time-line"></i>
+                                <span class="read-time-label"></span>
+                            </span>
+                        </div>
+
+                        {{if .Tags}}
+                        <div class="flex flex-wrap gap-2 mt-6">
+                            {{range .Tags}}
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-paper border border-paper-line text-ink-muted">
+                                <i class="ri-hashtag text-accent text-sm mr-0.5"></i>{{.}}
+                            </span>
+                            {{end}}
+                        </div>
+                        {{end}}
+                    </header>
+
+                    <div class="content blog-prose prose prose-lg prose-stone max-w-none chroma-hack fade-in-up delay-3">
+                        {{.HTML | safe}}
+                    </div>
+                </div>
+            </article>
+        </main>
+    </div>
+
+    <!-- 供 Tailwind JIT 扫描：下方 <script> 里动态插入的代码块 UI 所用 class -->
+    <div aria-hidden="true" class="hidden my-8 rounded-2xl ring-1 ring-slate-800/60 shadow-[0_24px_48px_-18px_rgba(0,0,0,0.35)] flex flex-col relative z-0 overflow-hidden flex justify-between items-center bg-[#111827] px-4 py-3 border-b border-white/10 flex gap-2 items-center w-3 h-3 rounded-full bg-[#ff5f56] shadow-sm bg-[#ffbd2e] bg-[#27c93f] ml-3 text-xs text-slate-500 font-mono sm:inline copy-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10 text-sm relative duration-500 ease-in-out text-[0.9em] bg-[#1e293b] overflow-hidden code-collapse-mask absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1e293b] to-transparent items-end justify-center pb-6 z-10 pointer-events-none expand-btn pointer-events-auto gap-2 bg-slate-700/95 hover:bg-accent border-slate-600 text-slate-200 hover:text-white px-5 py-2 rounded-full font-bold shadow-lg !static !h-auto !bg-transparent pt-4 pb-4 text-emerald-400 text-red-400"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 阅读进度条（相对主文区域）
+            const progress = document.getElementById('read-progress');
+            function updateProgress() {
+                const article = document.querySelector('article');
+                if (!article || !progress) return;
+                const rect = article.getBoundingClientRect();
+                const total = article.offsetHeight - window.innerHeight;
+                if (total <= 0) {
+                    progress.style.width = '100%';
+                    return;
+                }
+                let p = (-rect.top) / total;
+                p = Math.min(1, Math.max(0, p));
+                progress.style.width = (p * 100) + '%';
+            }
+            window.addEventListener('scroll', updateProgress, { passive: true });
+            window.addEventListener('resize', updateProgress);
+            updateProgress();
+
+            // 粗略阅读时间（中文约 400字/分钟，英文按词）
+            const prose = document.querySelector('.blog-prose');
+            const rt = document.querySelector('.read-time');
+            if (prose && rt) {
+                const text = prose.innerText || '';
+                const zh = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+                const words = text.trim().split(/\s+/).filter(Boolean).length;
+                const minutes = Math.max(1, Math.ceil((zh / 400) + ((words - zh) / 200)));
+                rt.querySelector('.read-time-label').textContent = '约 ' + minutes + ' 分钟阅读';
+                rt.hidden = false;
+            }
+
+            const MAX_CODE_HEIGHT = 500;
+            const codeBlocks = document.querySelectorAll('.content div.chroma, .content pre:not(div.chroma pre)');
+
+            codeBlocks.forEach(block => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'my-8 rounded-2xl ring-1 ring-slate-800/60 shadow-[0_24px_48px_-18px_rgba(0,0,0,0.35)] flex flex-col relative z-0 overflow-hidden';
+
+                const header = document.createElement('div');
+                header.className = 'flex justify-between items-center bg-[#111827] px-4 py-3 border-b border-white/10';
+                header.innerHTML = `
+                    <div class="flex gap-2 items-center">
+                        <span class="w-3 h-3 rounded-full bg-[#ff5f56] shadow-sm"></span>
+                        <span class="w-3 h-3 rounded-full bg-[#ffbd2e] shadow-sm"></span>
+                        <span class="w-3 h-3 rounded-full bg-[#27c93f] shadow-sm"></span>
+                        <span class="ml-3 text-xs text-slate-500 font-mono hidden sm:inline">code</span>
+                    </div>
+                    <button type="button" class="copy-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10">
+                        <i class="ri-file-copy-line text-sm"></i> <span>Copy</span>
+                    </button>
+                `;
+
+                const body = document.createElement('div');
+                body.className = 'relative transition-all duration-500 ease-in-out font-mono text-[0.9em] bg-[#1e293b] overflow-hidden';
+
+                block.parentNode.insertBefore(wrapper, block);
+                wrapper.appendChild(header);
+                wrapper.appendChild(body);
+                block.style.padding = '1.25rem';
+                block.style.overflowX = 'auto';
+                body.appendChild(block);
+
+                setTimeout(() => {
+                    if (block.clientHeight > MAX_CODE_HEIGHT) {
+                        body.style.maxHeight = MAX_CODE_HEIGHT + 'px';
+                        const mask = document.createElement('div');
+                        mask.className = 'code-collapse-mask absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#1e293b] to-transparent flex items-end justify-center pb-6 z-10 pointer-events-none';
+                        mask.innerHTML = `
+                            <button type="button" class="expand-btn pointer-events-auto flex items-center gap-2 bg-slate-700/95 hover:bg-accent border border-slate-600 text-slate-200 hover:text-white px-5 py-2 rounded-full text-xs font-bold transition-all shadow-lg">
+                                <span>展开全部</span> <i class="ri-arrow-down-s-line text-lg leading-none"></i>
+                            </button>
+                        `;
+                        body.appendChild(mask);
+                        const expandBtn = mask.querySelector('.expand-btn');
+                        expandBtn.addEventListener('click', () => {
+                            body.classList.toggle('expanded');
+                            if (body.classList.contains('expanded')) {
+                                body.style.maxHeight = (block.clientHeight + 60) + 'px';
+                                mask.classList.add('!static', '!h-auto', '!bg-transparent', 'pt-4', 'pb-4');
+                                expandBtn.innerHTML = `<span>收起</span> <i class="ri-arrow-up-s-line text-lg leading-none"></i>`;
+                            } else {
+                                body.style.maxHeight = MAX_CODE_HEIGHT + 'px';
+                                mask.classList.remove('!static', '!h-auto', '!bg-transparent', 'pt-4', 'pb-4');
+                                expandBtn.innerHTML = `<span>展开全部</span> <i class="ri-arrow-down-s-line text-lg leading-none"></i>`;
+                                wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        });
+                    }
+                }, 100);
+
+                const copyBtn = header.querySelector('.copy-btn');
+                copyBtn.addEventListener('click', () => {
+                    const clone = block.cloneNode(true);
+                    clone.querySelectorAll('[style*="user-select:none"],[style*="user-select: none"], td:first-child').forEach(el => el.remove());
+                    navigator.clipboard.writeText(clone.textContent.trim()).then(() => {
+                        copyBtn.innerHTML = '<i class="ri-check-line text-emerald-400 text-sm"></i> <span class="text-emerald-400">已复制</span>';
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<i class="ri-file-copy-line text-sm"></i> <span>Copy</span>';
+                        }, 2000);
+                    }).catch(() => {
+                        copyBtn.innerHTML = '<i class="ri-error-warning-line text-red-400"></i> 失败';
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>
