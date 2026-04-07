@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"mjlab/api"
 	"mjlab/internal/domain"
 	"mjlab/internal/infra/config"
 	"mjlab/internal/infra/database/sqlite3"
+	"mjlab/internal/infra/logging"
 	"mjlab/internal/infra/oos/local"
 	"mjlab/internal/infra/search"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,6 +24,18 @@ import (
 )
 
 func main() {
+	logWriter, logCleanup, err := logging.Setup(config.Cfg.Log)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "logging setup: %v\n", err)
+		os.Exit(1)
+	}
+	defer logCleanup()
+
+	if strings.EqualFold(strings.TrimSpace(config.Cfg.App.Env), "release") {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	gin.DefaultWriter = logWriter
+	gin.DefaultErrorWriter = logWriter
 
 	var (
 		oss domain.OSS
@@ -78,7 +92,8 @@ func startUserServer() *http.Server {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("listen: %s\n", err)
+			slog.Error("user server listen failed", "err", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -103,7 +118,8 @@ func startAdminServer() *http.Server {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("listen: %s\n", err)
+			slog.Error("admin server listen failed", "err", err)
+			os.Exit(1)
 		}
 	}()
 

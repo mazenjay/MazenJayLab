@@ -40,6 +40,7 @@ func init() {
 		Cfg.Article.OutputDir = ProcessPath(Cfg.Article.OutputDir, "~/.mjlab/article")
 		Cfg.Article.Template = ProcessPath(Cfg.Article.Template, "~/.mjlab/template.html")
 		Cfg.Search.IndexPath = ProcessPath(Cfg.Search.IndexPath, "~/.mjlab/index")
+		Cfg.Log.File = ProcessPath(Cfg.Log.File, "~/.mjlab/logs/app.log")
 	}
 
 }
@@ -49,11 +50,23 @@ var Cfg Config
 // Config 整个应用的配置总结构体
 type Config struct {
 	App      AppConfig     `mapstructure:"app"`
+	Log      LogConfig     `mapstructure:"log"`
 	Article  ArticleConfig `mapstructure:"article"` // ← 新增：生成的静态内容配置
 	Database DbConfig      `mapstructure:"database"`
 	Search   SearchConfig  `mapstructure:"search"`
 
 	WorkDir string
+}
+
+// LogConfig [log] 文件日志与滚动切分（lumberjack）
+type LogConfig struct {
+	File       string `mapstructure:"file"`         // 日志文件；空则 ~/.mjlab/logs/app.log
+	MaxSizeMB  int    `mapstructure:"max_size_mb"`  // 单文件最大 MB，超限滚动；默认 100
+	MaxBackups int    `mapstructure:"max_backups"`  // 保留历史文件个数；默认 10
+	MaxAgeDays int    `mapstructure:"max_age_days"` // 保留天数；0 表示不按日期删除
+	Compress   bool   `mapstructure:"compress"`     // 是否 gzip 压缩已滚动文件
+	Console    bool   `mapstructure:"console"`      // 是否同时写入 stderr
+	Level      string `mapstructure:"level"`        // debug / info / warn / error，默认 info
 }
 
 // AppConfig [app] 部分
