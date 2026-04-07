@@ -7,10 +7,18 @@ import (
 	"log/slog"
 	"mjlab/internal/domain"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 func New(source string) *SQLite {
+	dir := filepath.Dir(source)
+	
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		slog.Error("Failed to create database directory", "dir", dir, "error", err)
+		os.Exit(1)
+	}
+
 	db, err := gorm.Open(sqlite.Open(source), &gorm.Config{})
 	if err != nil {
 		slog.Error("Failed to connect to database", "source", source, "error", err)
