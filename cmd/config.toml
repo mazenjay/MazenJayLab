@@ -1,5 +1,4 @@
 [app]
-env = "debug"   # 开发模式 debug, 生产模式 release
 port = "8080"   # 服务端口
 
 [log]
