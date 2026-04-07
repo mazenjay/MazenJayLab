@@ -60,7 +60,7 @@ css: tailwind
 tailwind-css: tailwind
 
 lab-next:
-	cd web/lab-next && $(NPM) install --force --include=optional
+	cd web/lab-next && $(NPM) install --no-fund --no-audit
 ifdef NEXT_BACKEND_URL
 	cd web/lab-next && BACKEND_URL="$(NEXT_BACKEND_URL)" $(NPM) run build
 else
