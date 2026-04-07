@@ -1,9 +1,15 @@
 //go:build release
+
 package config
+
+import (
+	"os"
+	"path/filepath"
+)
 
 var (
 	WorkDir string
-	Mode string
+	Mode    string
 )
 
 func initVar() {
