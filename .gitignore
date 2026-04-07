@@ -34,5 +34,11 @@ go.work.sum
 
 testdata/
 
+# CMake 外置构建目录
+/build/
+
+# Tailwind 构建（文章模板 CSS）
+tailwind/node_modules/
+
 # 本地 RSA 私钥（仅客户端签名用，勿提交）
 scripts/admin/*.pem
