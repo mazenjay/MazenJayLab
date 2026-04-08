@@ -35,6 +35,7 @@ func init() {
 		index   = filepath.Join(WorkDir, "index")
 		dbFile  = filepath.Join(WorkDir, "data", "mazenjay.db")
 		logFile = filepath.Join(WorkDir, "logs", "app.log")
+		artilemd = filepath.Join(WorkDir, "article_md")
 	)
 	// 数据文件、主日志路径为约定目录，不在配置文件中提供（忽略 toml / 环境变量中的覆盖）
 
@@ -44,6 +45,7 @@ func init() {
 	Cfg.Article.Template = ProcessPath("", templ, false)
 	Cfg.Search.IndexPath = ProcessPath("", index, true)
 	Cfg.Log.File = ProcessPath("", logFile, false)
+	Cfg.Article.MarkDownPath = ProcessPath("", artilemd, true)
 
 }
 
@@ -56,8 +58,6 @@ type Config struct {
 	Article  ArticleConfig `mapstructure:"article"` // ← 新增：生成的静态内容配置
 	Database DbConfig      `mapstructure:"database"`
 	Search   SearchConfig  `mapstructure:"search"`
-
-	WorkDir string
 }
 
 // LogConfig [log] 文件日志与滚动切分（lumberjack）；日志文件路径由程序固定为 WorkDir/logs/app.log，不在此配置
@@ -83,6 +83,7 @@ type ArticleConfig struct {
 	ServePrefix    string `mapstructure:"serve_prefix"`     // 静态服务的前缀，例如 "/generated" 或 "/articles"
 	CleanOnStartup bool   `mapstructure:"clean_on_startup"` // 启动时是否清空 output_dir（默认 false）
 	Template       string `mapstructure:"template"`         // 自定义 HTML 模板目录（如果用模板渲染）
+	MarkDownPath string
 }
 
 // DbConfig [database] 部分；SQLite 文件路径由程序固定为 WorkDir/data/mazenjay.db，不在此配置

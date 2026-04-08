@@ -150,8 +150,6 @@ func (*ArticleService) ShowArticle(ctx context.Context, path string) (*domain.OS
 	return domain.DownloadFile(ctx, path)
 }
 
-const articleMarkdownSubdir = "article_md"
-
 // BatchCreateArticlesFromDir 固定扫描 WorkDir/article_md 下的 .md，批量创建文章；仅按 markdown 存储路径去重（不在此处解析 MD）。
 func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recursive bool) (*model.BatchArticleReport, error) {
 	report := &model.BatchArticleReport{
@@ -160,15 +158,15 @@ func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recurs
 		Errors:  make([]model.BatchArticleEntry, 0),
 	}
 
-	workDir := filepath.Clean(config.Cfg.WorkDir)
-	absDir := filepath.Join(workDir, articleMarkdownSubdir)
+	workDir := filepath.Clean(config.WorkDir)
+	absDir := filepath.Join(workDir, config.Cfg.Article.MarkDownPath)
 
 	st, err := os.Stat(absDir)
 	if err != nil {
 		return nil, err
 	}
 	if !st.IsDir() {
-		return nil, fmt.Errorf("不是目录: %s", articleMarkdownSubdir)
+		return nil, fmt.Errorf("不是目录: %s", config.Cfg.Article.MarkDownPath)
 	}
 
 	var files []string
