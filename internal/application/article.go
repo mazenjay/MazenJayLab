@@ -11,7 +11,9 @@ import (
 	"mjlab/api/model"
 	"mjlab/internal/domain"
 	"mjlab/internal/infra/config"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -146,4 +148,92 @@ func (*ArticleService) AddToSearchIndex(ctx context.Context, id uint) error {
 
 func (*ArticleService) ShowArticle(ctx context.Context, path string) (*domain.OSSFile, error) {
 	return domain.DownloadFile(ctx, path)
+}
+
+const articleMarkdownSubdir = "article_md"
+
+// BatchCreateArticlesFromDir 固定扫描 WorkDir/article_md 下的 .md，批量创建文章；仅按 markdown 存储路径去重（不在此处解析 MD）。
+func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recursive bool) (*model.BatchArticleReport, error) {
+	report := &model.BatchArticleReport{
+		Created: make([]model.BatchArticleEntry, 0),
+		Skipped: make([]model.BatchArticleEntry, 0),
+		Errors:  make([]model.BatchArticleEntry, 0),
+	}
+
+	workDir := filepath.Clean(config.Cfg.WorkDir)
+	absDir := filepath.Join(workDir, articleMarkdownSubdir)
+
+	st, err := os.Stat(absDir)
+	if err != nil {
+		return nil, err
+	}
+	if !st.IsDir() {
+		return nil, fmt.Errorf("不是目录: %s", articleMarkdownSubdir)
+	}
+
+	var files []string
+	if recursive {
+		err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if strings.EqualFold(filepath.Ext(d.Name()), ".md") {
+				files = append(files, path)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		entries, err := os.ReadDir(absDir)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.EqualFold(filepath.Ext(e.Name()), ".md") {
+				files = append(files, filepath.Join(absDir, e.Name()))
+			}
+		}
+	}
+
+	for _, full := range files {
+		select {
+		case <-ctx.Done():
+			return report, ctx.Err()
+		default:
+		}
+
+		rel, err := filepath.Rel(workDir, full)
+		if err != nil {
+			report.Errors = append(report.Errors, model.BatchArticleEntry{Path: filepath.ToSlash(full), Error: err.Error()})
+			continue
+		}
+		rel = filepath.ToSlash(rel)
+
+		n, err := domain.CountArticlesByMarkdown(ctx, rel)
+		if err != nil {
+			report.Errors = append(report.Errors, model.BatchArticleEntry{Path: rel, Error: err.Error()})
+			continue
+		}
+		if n > 0 {
+			report.Skipped = append(report.Skipped, model.BatchArticleEntry{Path: rel, Reason: "exists_markdown"})
+			continue
+		}
+
+		id, err := as.CreateArticle(ctx, rel)
+		if err != nil {
+			report.Errors = append(report.Errors, model.BatchArticleEntry{Path: rel, Error: err.Error()})
+			continue
+		}
+		report.Created = append(report.Created, model.BatchArticleEntry{Path: rel, ID: id})
+	}
+
+	return report, nil
 }

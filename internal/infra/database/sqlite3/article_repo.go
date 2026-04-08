@@ -91,3 +91,9 @@ func (r *ArticleRepo) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).
 		Delete(&domain.Article{}, id).Error
 }
+
+func (r *ArticleRepo) CountByMarkdown(ctx context.Context, markdown string) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&domain.Article{}).Where("markdown = ?", markdown).Count(&n).Error
+	return n, err
+}

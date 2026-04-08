@@ -119,6 +119,7 @@ func startAdminServer() *http.Server {
 	engine := gin.Default()
 	// engine.Use(api.RSAVerifyMiddleware())
 	engine.POST("/article", api.CreateArticle)
+	engine.POST("/batch-articles", api.BatchCreateArticles)
 	engine.POST("/project", api.AddProject)
 	engine.POST("/rebuild-index", api.RebuildIndex)
 	engine.POST("/article/:id/:status", api.ManageArticleStatus)

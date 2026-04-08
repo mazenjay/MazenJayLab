@@ -15,6 +15,21 @@ type Page struct {
 	HasMore bool  `json:"has_more"`
 }
 
+// BatchArticleEntry 批量导入单条结果（创建 / 跳过 / 错误）
+type BatchArticleEntry struct {
+	Path   string `json:"path"`
+	ID     uint   `json:"id,omitempty"`
+	Reason string `json:"reason,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+// BatchArticleReport POST /batch-articles 响应
+type BatchArticleReport struct {
+	Created []BatchArticleEntry `json:"created"`
+	Skipped []BatchArticleEntry `json:"skipped"`
+	Errors  []BatchArticleEntry `json:"errors"`
+}
+
 type ProjectTech struct {
 	Name string `json:"name"`
 	Icon string `json:"icon"`

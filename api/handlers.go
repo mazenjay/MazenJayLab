@@ -263,6 +263,23 @@ func CreateArticle(c *gin.Context) {
 	})
 }
 
+// BatchCreateArticles POST /batch-articles
+// 固定扫描 WorkDir/article_md；表单 recursive（默认 true；0/false/no 为仅当前目录，不含子目录）
+func BatchCreateArticles(c *gin.Context) {
+	rec := true
+	if v := strings.ToLower(strings.TrimSpace(c.PostForm("recursive"))); v == "0" || v == "false" || v == "no" {
+		rec = false
+	}
+
+	rep, err := articleServ.BatchCreateArticlesFromDir(c.Request.Context(), rec)
+	if err != nil {
+		slog.Warn("batch articles failed", "err", err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, rep)
+}
+
 func ManageArticleStatus(c *gin.Context) {
 	var (
 		id  uint64

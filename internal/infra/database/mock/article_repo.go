@@ -152,3 +152,13 @@ func (r *ArticleRepo) Delete(_ context.Context, id uint) error {
 	}
 	return errors.New("not found")
 }
+
+func (r *ArticleRepo) CountByMarkdown(_ context.Context, markdown string) (int64, error) {
+	var n int64
+	for _, val := range r.data {
+		if val.Markdown == markdown {
+			n++
+		}
+	}
+	return n, nil
+}

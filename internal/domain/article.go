@@ -37,6 +37,8 @@ type ArticleRepository interface {
 	Save(context.Context, *Article) error
 	Update(context.Context, *Article) error
 	Delete(context.Context, uint) error
+	// CountByMarkdown 用于管理端批量导入时按路径去重（含未发布文章）
+	CountByMarkdown(context.Context, string) (int64, error)
 }
 
 func AddArticle(ctx context.Context, article *Article) error {
@@ -49,6 +51,10 @@ func GetArticle(ctx context.Context, ids ...uint) ([]*Article, error) {
 
 func GetArticles(ctx context.Context, q Query) ([]*Article, int64, error) {
 	return uow.Article().List(ctx, q)
+}
+
+func CountArticlesByMarkdown(ctx context.Context, markdown string) (int64, error) {
+	return uow.Article().CountByMarkdown(ctx, markdown)
 }
 
 func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, template string) error {
