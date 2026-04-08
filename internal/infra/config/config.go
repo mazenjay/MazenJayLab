@@ -33,16 +33,16 @@ func init() {
 		article = filepath.Join(WorkDir, "article")
 		templ   = filepath.Join(WorkDir, "template.html")
 		index   = filepath.Join(WorkDir, "index")
+		dbFile  = filepath.Join(WorkDir, "data", "mazenjay.db")
+		logFile = filepath.Join(WorkDir, "logs", "app.log")
 	)
 	// 数据文件、主日志路径为约定目录，不在配置文件中提供（忽略 toml / 环境变量中的覆盖）
-	dbFile := filepath.Join(WorkDir, "data", "mazenjay.db")
-	logFile := filepath.Join(WorkDir, "logs", "app.log")
 
 	Cfg.App.Env = Mode
 	Cfg.Database.Source = ProcessPath("", dbFile)
-	Cfg.Article.OutputDir = ProcessPath(Cfg.Article.OutputDir, article)
-	Cfg.Article.Template = ProcessPath(Cfg.Article.Template, templ)
-	Cfg.Search.IndexPath = ProcessPath(Cfg.Search.IndexPath, index)
+	Cfg.Article.OutputDir = ProcessPath("", article)
+	Cfg.Article.Template = ProcessPath("", templ)
+	Cfg.Search.IndexPath = ProcessPath("", index)
 	Cfg.Log.File = ProcessPath("", logFile)
 
 }
