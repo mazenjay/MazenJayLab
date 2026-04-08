@@ -30,18 +30,20 @@ func init() {
 	}
 
 	var (
-		db      = filepath.Join(WorkDir, "data", "db")
 		article = filepath.Join(WorkDir, "article")
 		templ   = filepath.Join(WorkDir, "template.html")
 		index   = filepath.Join(WorkDir, "index")
-		logf    = filepath.Join(WorkDir, "logs", "app.log")
 	)
+	// 数据文件、主日志路径为约定目录，不在配置文件中提供（忽略 toml / 环境变量中的覆盖）
+	dbFile := filepath.Join(WorkDir, "data", "mazenjay.db")
+	logFile := filepath.Join(WorkDir, "logs", "app.log")
+
 	Cfg.App.Env = Mode
-	Cfg.Database.Source = ProcessPath(Cfg.Database.Source, db)
+	Cfg.Database.Source = ProcessPath("", dbFile)
 	Cfg.Article.OutputDir = ProcessPath(Cfg.Article.OutputDir, article)
 	Cfg.Article.Template = ProcessPath(Cfg.Article.Template, templ)
 	Cfg.Search.IndexPath = ProcessPath(Cfg.Search.IndexPath, index)
-	Cfg.Log.File = ProcessPath(Cfg.Log.File, logf)
+	Cfg.Log.File = ProcessPath("", logFile)
 
 }
 
@@ -58,9 +60,9 @@ type Config struct {
 	WorkDir string
 }
 
-// LogConfig [log] 文件日志与滚动切分（lumberjack）
+// LogConfig [log] 文件日志与滚动切分（lumberjack）；日志文件路径由程序固定为 WorkDir/logs/app.log，不在此配置
 type LogConfig struct {
-	File       string `mapstructure:"file"`         // 日志文件；空则 ~/.mjlab/logs/app.log
+	File       string `mapstructure:"file"`         // 由 init 固定为 WorkDir/logs/app.log，mapstructure 项忽略
 	MaxSizeMB  int    `mapstructure:"max_size_mb"`  // 单文件最大 MB，超限滚动；默认 100
 	MaxBackups int    `mapstructure:"max_backups"`  // 保留历史文件个数；默认 10
 	MaxAgeDays int    `mapstructure:"max_age_days"` // 保留天数；0 表示不按日期删除
@@ -83,10 +85,10 @@ type ArticleConfig struct {
 	Template       string `mapstructure:"template"`         // 自定义 HTML 模板目录（如果用模板渲染）
 }
 
-// DbConfig [database] 部分
+// DbConfig [database] 部分；SQLite 文件路径由程序固定为 WorkDir/data/mazenjay.db，不在此配置
 type DbConfig struct {
 	Driver   string `mapstructure:"driver"`
-	Source   string `mapstructure:"source"`
+	Source   string `mapstructure:"source"` // 由 init 固定，mapstructure 项忽略
 	Host     string `mapstructure:"host,omitempty"`
 	Port     string `mapstructure:"port,omitempty"`
 	User     string `mapstructure:"user,omitempty"`
