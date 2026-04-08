@@ -6,6 +6,7 @@
 #   ~/.mjlab/template.html — MD 转 HTML 模板
 #   ~/.mjlab/app.css       — Tailwind 编译产物
 #   ~/.mjlab/dict/         — 结巴分词依赖字典
+#   ~/.mjlab/scripts/      — 无 RSA 的管理脚本（交互式，首次会问管理端地址）
 #   web/lab-next/.next/    — Next 默认构建目录
 #
 # 用法:
@@ -54,9 +55,13 @@ lab-go: tailwind
 	# 1.1 编译可执行程序到 ~/.mjlab/bin/mjlab
 	$(GO) build -trimpath -ldflags "-s -w" -tags "release" -o "$(APP_BIN)/mjlab" ./cmd/main.go
 
-	# 1.2 拷贝配置、模板与 CSS 到 ~/.mjlab/
+	# 1.2 拷贝配置、模板与 CSS 到 ~/.mjlab/（config.toml 已存在则保留，不覆盖）
 	@echo "正在拷贝配置文件、模板与 CSS..."
-	@cp cmd/config.toml "$(APP_HOME)/config.toml"
+	@if [ -f "$(APP_HOME)/config.toml" ]; then \
+		echo "已存在 $(APP_HOME)/config.toml，跳过覆盖（删除该文件后再 make 可恢复仓库默认配置）"; \
+	else \
+		cp cmd/config.toml "$(APP_HOME)/config.toml"; \
+	fi
 	@cp template.html "$(APP_HOME)/template.html"
 
 	# 注：假设你的 Tailwind 构建产物是 static/css/app.css，将其拷入 .mjlab 根目录
@@ -68,6 +73,12 @@ lab-go: tailwind
 	@rm -rf "$(APP_HOME)/dict"
 	@GOJIEBA_DIR=$$($(GO) list -m -f '{{.Dir}}' github.com/yanyiwu/gojieba) && \
 	cp -r "$$GOJIEBA_DIR/deps/cppjieba/dict" "$(APP_HOME)/dict"
+
+	# 1.4 无 RSA 管理脚本 → ~/.mjlab/scripts/
+	@echo "正在安装管理脚本到 $(APP_HOME)/scripts ..."
+	@mkdir -p "$(APP_HOME)/scripts"
+	@cp scripts/admin-local/*.sh "$(APP_HOME)/scripts/"
+	@chmod a+x "$(APP_HOME)/scripts/"*.sh
 
 	@echo "✅ 后端构建完毕！应用已安装到 $(APP_HOME)"
 
@@ -118,3 +129,4 @@ help:
 	@echo "SKIP_FRONTEND=1        跳过 Next 前端构建"
 	@echo "make install           将 mjlab 软链/安装到系统 $(PREFIX)/bin"
 	@echo "make clean             删除 $(APP_HOME) 与 Next 缓存"
+	@echo "管理脚本（无 RSA）     make 后见 $(APP_HOME)/scripts/，未设置 ADMIN_BASE 时会询问地址"
