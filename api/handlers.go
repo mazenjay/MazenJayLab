@@ -57,7 +57,7 @@ func init() {
 
 func loadTrustedKeysFromDir() {
 	var dir string
-	dir = filepath.Join(config.Cfg.WorkDir, ".keys")
+	dir = filepath.Join(config.WorkDir, ".keys")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
