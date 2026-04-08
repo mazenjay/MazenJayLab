@@ -2,8 +2,8 @@
   "name": "mjlab-article-css",
   "private": true,
   "scripts": {
-    "build": "tailwindcss -i ./src/input.css -o ../static/css/app.css --minify",
-    "watch": "tailwindcss -i ./src/input.css -o ../static/css/app.css --watch"
+    "build": "tailwindcss -i ./src/input.css -o ../build/app.css --minify",
+    "watch": "tailwindcss -i ./src/input.css -o ../build/app.css --watch"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.15",

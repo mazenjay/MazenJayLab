@@ -66,7 +66,7 @@ lab-go: tailwind
 
 	# 注：假设你的 Tailwind 构建产物是 static/css/app.css，将其拷入 .mjlab 根目录
 	# 如果你的 css 输出路径不同，请修改这行代码的源路径
-	@cp static/css/app.css "$(APP_HOME)/app.css"
+	@cp build/app.css "$(APP_HOME)/app.css"
 
 	# 1.3 提取 gojieba 字典到 ~/.mjlab/dict
 	@echo "正在自动提取 gojieba 字典到 $(APP_HOME)/dict ..."
