@@ -39,11 +39,11 @@ func init() {
 	// 数据文件、主日志路径为约定目录，不在配置文件中提供（忽略 toml / 环境变量中的覆盖）
 
 	Cfg.App.Env = Mode
-	Cfg.Database.Source = ProcessPath("", dbFile)
-	Cfg.Article.OutputDir = ProcessPath("", article)
-	Cfg.Article.Template = ProcessPath("", templ)
-	Cfg.Search.IndexPath = ProcessPath("", index)
-	Cfg.Log.File = ProcessPath("", logFile)
+	Cfg.Database.Source = ProcessPath("", dbFile, false)
+	Cfg.Article.OutputDir = ProcessPath("", article, true)
+	Cfg.Article.Template = ProcessPath("", templ, false)
+	Cfg.Search.IndexPath = ProcessPath("", index, true)
+	Cfg.Log.File = ProcessPath("", logFile, false)
 
 }
 
@@ -100,15 +100,20 @@ type SearchConfig struct {
 	IndexPath string `mapstructure:"index_path"`
 }
 
-func ProcessPath(path string, defaultPath string) string {
+func ProcessPath(path string, defaultPath string, isDir bool) string {
 	home, _ := os.UserHomeDir()
 
 	if path == "" {
 		if strings.HasPrefix(defaultPath, "~") {
 			defaultPath = strings.Replace(defaultPath, "~", home, 1)
 		}
-		dir := filepath.Dir(defaultPath)
-		err := os.MkdirAll(dir, os.ModePerm)
+		var dir string
+		if isDir {
+			dir = defaultPath
+		} else {
+			dir = filepath.Dir(defaultPath)
+		}
+		err := os.MkdirAll(dir, 0755)
 		if err != nil {
 			panic(err)
 		}
