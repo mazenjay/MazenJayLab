@@ -44,7 +44,7 @@ func main() {
 		sg  domain.SearchIndex
 	)
 
-	oss = local.New(config.Cfg.WorkDir)
+	oss = local.New(config.WorkDir)
 	uow = sqlite3.New(config.Cfg.Database.Source)
 
 	var jb *gojieba.Jieba
