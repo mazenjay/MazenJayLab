@@ -158,8 +158,7 @@ func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recurs
 		Errors:  make([]model.BatchArticleEntry, 0),
 	}
 
-	workDir := filepath.Clean(config.WorkDir)
-	absDir := filepath.Join(workDir, config.Cfg.Article.MarkDownPath)
+	absDir := config.Cfg.Article.MarkDownPath
 
 	st, err := os.Stat(absDir)
 	if err != nil {
@@ -208,7 +207,7 @@ func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recurs
 		default:
 		}
 
-		rel, err := filepath.Rel(workDir, full)
+		rel, err := filepath.Rel(config.WorkDir, full)
 		if err != nil {
 			report.Errors = append(report.Errors, model.BatchArticleEntry{Path: filepath.ToSlash(full), Error: err.Error()})
 			continue
