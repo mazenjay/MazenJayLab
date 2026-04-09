@@ -33,7 +33,8 @@ func sqliteDSN(path string) string {
 	return path + "?" + q
 }
 
-func New(source string) *SQLite {
+// New gcfg 传 nil 则使用 GORM 静默配置（多用于测试）；主程序应传入 logging.GormConfig 的返回值。
+func New(source string, gcfg *gorm.Config) *SQLite {
 	dir := filepath.Dir(source)
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -41,8 +42,11 @@ func New(source string) *SQLite {
 		os.Exit(1)
 	}
 
+	if gcfg == nil {
+		gcfg = &gorm.Config{}
+	}
 	dsn := sqliteDSN(source)
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dsn), gcfg)
 	if err != nil {
 		slog.Error("Failed to connect to database", "source", source, "error", err)
 		os.Exit(1)
@@ -85,24 +89,4 @@ func (s *SQLite) Do(ctx context.Context, fn func(uow domain.UnitOfWork) error) e
 		txUow := &SQLite{db: tx}
 		return fn(txUow)
 	})
-}
-
-func buildOrderClause(query domain.Query) string {
-	allowedSort := map[string]string{
-		"id":         "id",
-		"created_at": "created_at",
-		"sort_order": "sort_order",
-	}
-
-	field, ok := allowedSort[strings.ToLower(query.Sort)]
-	if !ok {
-		field = "id"
-	}
-
-	order := "DESC"
-	if strings.ToLower(query.SortOrder) == "asc" {
-		order = "ASC"
-	}
-
-	return field + " " + order
 }

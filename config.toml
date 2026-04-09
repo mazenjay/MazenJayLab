@@ -34,7 +34,15 @@ level = "debug"        # debug / info / warn / error
 # 仅驱动类型可配；库文件路径固定为 <WorkDir>/data/mazenjay.db，见文件头。
 # Only driver is configurable; DB file path is fixed, see header.
 # Driver: sqlite (implemented) | mysql | postgres (reserved)
-driver = "sqlite"
+# driver = "sqlite"
+
+# PostgreSQL 示例（切换到 postgres 时取消注释并改 driver）
+driver = "postgres"
+host = "127.0.0.1"
+port = "5432"
+user = "postgres"
+password = "mazhj180"
+db_name = "mjlab"
 
 # MySQL / PostgreSQL（预留，当前未使用 | Reserved, not used yet）
 # host = "127.0.0.1"

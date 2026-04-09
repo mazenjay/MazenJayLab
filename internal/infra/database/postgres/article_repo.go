@@ -1,4 +1,4 @@
-package sqlite3
+package postgres
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func (r *ArticleRepo) List(ctx context.Context, query domain.Query) ([]*domain.A
 
 	if query.Keywords != "" {
 		like := "%" + query.Keywords + "%"
-		db = db.Where("title LIKE ? OR summary LIKE ?", like, like)
+		db = db.Where("title ILIKE ? OR summary ILIKE ?", like, like)
 	}
 
 	if err := db.Count(&total).Error; err != nil {
@@ -82,7 +82,7 @@ func (r *ArticleRepo) Update(ctx context.Context, article *domain.Article) error
 	return r.db.WithContext(ctx).
 		Model(&domain.Article{}).
 		Where("id = ?", article.ID).
-		Select("is_published", "html", "markdown").
+		Select("is_published", "html", "markdown", "slug").
 		Updates(article).Error
 }
 

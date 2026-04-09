@@ -271,7 +271,7 @@ func BatchCreateArticles(c *gin.Context) {
 		rec = false
 	}
 
-	rep, err := articleServ.BatchCreateArticlesFromDir(c.Request.Context(), rec)
+	rep, err := articleServ.CreateArticles(c.Request.Context(), rec)
 	if err != nil {
 		slog.Warn("batch articles failed", "err", err)
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})

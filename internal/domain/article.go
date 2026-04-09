@@ -15,7 +15,7 @@ type Article struct {
 	ID uint `gorm:"primarykey"`
 
 	Title       string
-	Slug        string `gorm:uniqueIndex`
+	Slug        string `gorm:"uniqueIndex"`
 	Summary     string
 	ViewCount   uint
 	IsPublished bool

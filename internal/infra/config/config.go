@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +42,13 @@ func init() {
 	// 数据文件、主日志路径为约定目录，不在配置文件中提供（忽略 toml / 环境变量中的覆盖）
 
 	Cfg.App.Env = Mode
-	Cfg.Database.Source = ProcessPath("", dbFile, false)
+	if isPostgresDriver(Cfg.Database.Driver) {
+		if strings.TrimSpace(Cfg.Database.Source) == "" {
+			Cfg.Database.Source = buildPostgresDSN(Cfg.Database)
+		}
+	} else {
+		Cfg.Database.Source = ProcessPath("", dbFile, false)
+	}
 	Cfg.Article.OutputDir = ProcessPath("", article, true)
 	Cfg.Article.Template = ProcessPath("", templ, false)
 	Cfg.Search.IndexPath = ProcessPath("", index, true)
@@ -86,10 +94,12 @@ type ArticleConfig struct {
 	MarkDownPath string
 }
 
-// DbConfig [database] 部分；SQLite 文件路径由程序固定为 WorkDir/data/mazenjay.db，不在此配置
+// DbConfig [database] 部分
+// sqlite: Source 固定为 WorkDir/data/mazenjay.db（见 init）。
+// postgres: 无 source 时用 host/port/user/password/db_name 拼 DSN；也可直接写 source=postgres://...
 type DbConfig struct {
 	Driver   string `mapstructure:"driver"`
-	Source   string `mapstructure:"source"` // 由 init 固定，mapstructure 项忽略
+	Source   string `mapstructure:"source"`
 	Host     string `mapstructure:"host,omitempty"`
 	Port     string `mapstructure:"port,omitempty"`
 	User     string `mapstructure:"user,omitempty"`
@@ -99,6 +109,52 @@ type DbConfig struct {
 
 type SearchConfig struct {
 	IndexPath string `mapstructure:"index_path"`
+}
+
+func isPostgresDriver(driver string) bool {
+	switch strings.ToLower(strings.TrimSpace(driver)) {
+	case "postgres", "postgresql", "pg":
+		return true
+	default:
+		return false
+	}
+}
+
+// IsPostgresDriver 是否使用 PostgreSQL（供 main 选择仓储实现）。
+func IsPostgresDriver() bool {
+	return isPostgresDriver(Cfg.Database.Driver)
+}
+
+// buildPostgresDSN 由字段拼 postgres URL；生产请将 sslmode 改为 require（可通过 source 整串覆盖）。
+func buildPostgresDSN(c DbConfig) string {
+	host := strings.TrimSpace(c.Host)
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := strings.TrimSpace(c.Port)
+	if port == "" {
+		port = "5432"
+	}
+	user := strings.TrimSpace(c.User)
+	if user == "" {
+		user = "postgres"
+	}
+	dbname := strings.TrimSpace(c.DBName)
+	if dbname == "" {
+		dbname = "mjlab"
+	}
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(user, c.Password),
+		Host:   fmt.Sprintf("%s:%s", host, port),
+		Path:   "/" + strings.TrimPrefix(dbname, "/"),
+	}
+	// 不在 URL 里传 TimeZone：url.QueryEscape 会把 Asia/Shanghai 变成 Asia%2FShanghai，
+	// pgx 传给服务端后会被当成非法时区名。会话时区用数据库默认（常见为 UTC）；展示时在应用层处理。
+	q := url.Values{}
+	q.Set("sslmode", "disable")
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func ProcessPath(path string, defaultPath string, isDir bool) string {

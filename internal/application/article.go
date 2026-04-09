@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"mjlab/api/model"
 	"mjlab/internal/domain"
 	"mjlab/internal/infra/config"
@@ -40,119 +39,7 @@ func (*ArticleService) Pagination(ctx context.Context, query domain.Query) ([]*m
 	return overviews, total
 }
 
-func (*ArticleService) ConvertMd(ctx context.Context, force, publish bool, id uint) error {
-
-	return domain.Do(ctx, func(uow domain.UnitOfWork) error {
-		repo := uow.Article()
-		acts, err := repo.Get(ctx, id)
-		if err != nil {
-			return err
-		}
-
-		article := acts[0]
-		if publish {
-			article.IsPublished = true
-		}
-
-		if !force && article.Html != "" {
-			return nil
-		}
-		newCtx, cancel := context.WithTimeout(ctx, time.Second*60)
-		defer cancel()
-
-		var (
-			file *domain.OSSFile
-			ex   error
-			path string
-		)
-		file, ex = domain.DownloadFile(newCtx, article.Markdown)
-		if ex != nil {
-			return ex
-		}
-		if path, err = domain.UploadWithTempFile(newCtx, func(writer io.Writer) (string, error) {
-			if e := article.Render(newCtx, file, writer, config.Cfg.Article.Template); e != nil {
-				return "", e
-			}
-			filename := filepath.Join("article", article.Slug+".html")
-			return filename, nil
-		}); err != nil {
-			slog.Warn("convert to md failed", "err", err)
-			return err
-		}
-
-		article.Html = path
-
-		return repo.Update(ctx, article)
-	})
-}
-
-func (as *ArticleService) CreateArticle(ctx context.Context, path string) (uint, error) {
-	now := time.Now()
-	data := fmt.Sprintf("%s-%d", path, now.UnixNano())
-	sum := sha256.Sum256([]byte(data))
-	article := &domain.Article{
-		Slug:      hex.EncodeToString(sum[:]),
-		Markdown:  path,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if err := domain.AddArticle(ctx, article); err != nil {
-		return 0, err
-	}
-
-	id := article.ID
-	go func() {
-		// 勿使用请求 ctx：handler 返回后 Gin 会取消 context，批量/短请求会导致异步 ConvertMd 报 context canceled
-		bg := context.Background()
-		if e := as.ConvertMd(bg, true, true, id); e != nil {
-			slog.Warn("convert to markdown was failed", "id", id, "err", e)
-			return
-		}
-		if e := as.AddToSearchIndex(bg, id); e != nil {
-			slog.Warn("add to search index was failed", "id", id, "err", e)
-		}
-	}()
-
-	return article.ID, nil
-}
-
-func (*ArticleService) ManageArticleStatus(ctx context.Context, id uint, status string) error {
-	if id == 0 {
-		return errors.New("id is required")
-	}
-	if status != "publish" && status != "unpublish" {
-		return errors.New("status is required")
-	}
-
-	return domain.Do(ctx, func(uow domain.UnitOfWork) error {
-		repo := uow.Article()
-		article, err := repo.Get(ctx, id)
-		if err != nil {
-			return err
-		}
-
-		article[0].IsPublished = status == "publish"
-		return repo.Update(ctx, article[0])
-	})
-}
-
-func (*ArticleService) AddToSearchIndex(ctx context.Context, id uint) error {
-	return domain.Do(ctx, func(uow domain.UnitOfWork) error {
-		repo := uow.Article()
-		ar, err := repo.Get(ctx, id)
-		if err != nil {
-			return err
-		}
-		return ar[0].AddToIndex(ctx)
-	})
-}
-
-func (*ArticleService) ShowArticle(ctx context.Context, path string) (*domain.OSSFile, error) {
-	return domain.DownloadFile(ctx, path)
-}
-
-// BatchCreateArticlesFromDir 固定扫描 WorkDir/article_md 下的 .md，批量创建文章；仅按 markdown 存储路径去重（不在此处解析 MD）。
-func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recursive bool) (*model.BatchArticleReport, error) {
+func (as *ArticleService) CreateArticles(ctx context.Context, recursive bool) (*model.BatchArticleReport, error) {
 	report := &model.BatchArticleReport{
 		Created: make([]model.BatchArticleEntry, 0),
 		Skipped: make([]model.BatchArticleEntry, 0),
@@ -166,7 +53,7 @@ func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recurs
 		return nil, err
 	}
 	if !st.IsDir() {
-		return nil, fmt.Errorf("不是目录: %s", config.Cfg.Article.MarkDownPath)
+		return nil, fmt.Errorf("it's not dir: %s", config.Cfg.Article.MarkDownPath)
 	}
 
 	var files []string
@@ -234,4 +121,113 @@ func (as *ArticleService) BatchCreateArticlesFromDir(ctx context.Context, recurs
 	}
 
 	return report, nil
+}
+
+func (as *ArticleService) CreateArticle(ctx context.Context, path string) (uint, error) {
+
+	now := time.Now()
+	data := fmt.Sprintf("%s-%d", path, now.UnixNano())
+	sum := sha256.Sum256([]byte(data))
+	article := &domain.Article{
+		Slug:      hex.EncodeToString(sum[:]),
+		Markdown:  path,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	err := domain.Do(ctx, func(uow domain.UnitOfWork) error {
+		repo := uow.Article()
+		if err := repo.Save(ctx, article); err != nil {
+			return err
+		}
+
+		id := article.ID
+		if err := as.convert(ctx, repo, id, true); err != nil {
+			return err
+		}
+		if err := as.buildIndex(ctx, repo, id); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return article.ID, err
+}
+
+func (*ArticleService) convert(ctx context.Context, repo domain.ArticleRepository, id uint, force bool) error {
+	acts, err := repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	article := acts[0]
+	article.IsPublished = true
+
+	if !force && article.Html != "" {
+		return nil
+	}
+	newCtx, cancel := context.WithTimeout(ctx, time.Second*20)
+	defer cancel()
+
+	var (
+		file *domain.OSSFile
+		ex   error
+		path string
+	)
+	file, ex = domain.DownloadFile(newCtx, article.Markdown)
+	if ex != nil {
+		return ex
+	}
+	if path, err = domain.UploadWithTempFile(newCtx, func(writer io.Writer) (string, error) {
+		if e := article.Render(newCtx, file, writer, config.Cfg.Article.Template); e != nil {
+			return "", e
+		}
+		filename := filepath.Join("article", article.Slug+".html")
+		return filename, nil
+	}); err != nil {
+		return err
+	}
+
+	article.Html = path
+
+	return repo.Update(ctx, article)
+}
+
+func (*ArticleService) buildIndex(ctx context.Context, repo domain.ArticleRepository, id uint) error {
+	ar, err := repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	return ar[0].AddToIndex(ctx)
+}
+
+func (*ArticleService) ManageArticleStatus(ctx context.Context, id uint, status string) error {
+	if id == 0 {
+		return errors.New("id is required")
+	}
+	if status != "publish" && status != "unpublish" {
+		return errors.New("status is required")
+	}
+
+	return domain.Do(ctx, func(uow domain.UnitOfWork) error {
+		repo := uow.Article()
+		article, err := repo.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		article[0].IsPublished = status == "publish"
+		return repo.Update(ctx, article[0])
+	})
+}
+
+func (as *ArticleService) AddToSearchIndex(ctx context.Context, id uint) error {
+	return domain.Do(ctx, func(uow domain.UnitOfWork) error {
+		repo := uow.Article()
+		return as.buildIndex(ctx, repo, id)
+	})
+}
+
+func (*ArticleService) ShowArticle(ctx context.Context, path string) (*domain.OSSFile, error) {
+	return domain.DownloadFile(ctx, path)
 }
