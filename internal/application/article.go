@@ -57,7 +57,7 @@ func (*ArticleService) ConvertMd(ctx context.Context, force, publish bool, id ui
 		if !force && article.Html != "" {
 			return nil
 		}
-		newCtx, cancel := context.WithTimeout(ctx, time.Second*20)
+		newCtx, cancel := context.WithTimeout(ctx, time.Second*60)
 		defer cancel()
 
 		var (
@@ -76,7 +76,7 @@ func (*ArticleService) ConvertMd(ctx context.Context, force, publish bool, id ui
 			filename := filepath.Join("article", article.Slug+".html")
 			return filename, nil
 		}); err != nil {
-			slog.Warn("convert to md failed")
+			slog.Warn("convert to md failed", "err", err)
 			return err
 		}
 
@@ -100,16 +100,17 @@ func (as *ArticleService) CreateArticle(ctx context.Context, path string) (uint,
 		return 0, err
 	}
 
+	id := article.ID
 	go func() {
-		if e := as.ConvertMd(ctx, true, true, article.ID); e != nil {
-			slog.Warn("convert to markdown was failed", "err", e)
+		// 勿使用请求 ctx：handler 返回后 Gin 会取消 context，批量/短请求会导致异步 ConvertMd 报 context canceled
+		bg := context.Background()
+		if e := as.ConvertMd(bg, true, true, id); e != nil {
+			slog.Warn("convert to markdown was failed", "id", id, "err", e)
 			return
 		}
-
-		if e := as.AddToSearchIndex(ctx, article.ID); e != nil {
-			slog.Warn("add to search index was failed", "err", e)
+		if e := as.AddToSearchIndex(bg, id); e != nil {
+			slog.Warn("add to search index was failed", "id", id, "err", e)
 		}
-
 	}()
 
 	return article.ID, nil

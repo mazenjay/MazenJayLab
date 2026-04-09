@@ -3,7 +3,6 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 )
 
 var (
@@ -22,5 +21,4 @@ func initVar() {
 		panic(err)
 	}
 	WorkDir = wd
-	WorkDir = filepath.Join(WorkDir, "cmd")
 }
