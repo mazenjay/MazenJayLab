@@ -42,3 +42,9 @@ tailwind/node_modules/
 
 # 本地 RSA 私钥（仅客户端签名用，勿提交）
 scripts/admin/*.pem
+
+/article/
+/article_md/
+/data/
+/index/
+/logs/
