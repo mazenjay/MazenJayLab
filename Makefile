@@ -60,7 +60,7 @@ lab-go: tailwind
 	@if [ -f "$(APP_HOME)/config.toml" ]; then \
 		echo "已存在 $(APP_HOME)/config.toml，跳过覆盖（删除该文件后再 make 可恢复仓库默认配置）"; \
 	else \
-		cp cmd/config.toml "$(APP_HOME)/config.toml"; \
+		cp config.toml "$(APP_HOME)/config.toml"; \
 	fi
 	@cp template.html "$(APP_HOME)/template.html"
 

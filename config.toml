@@ -1,0 +1,44 @@
+# =============================================================================
+# MazenJayLab — 应用配置 | Application configuration
+# =============================================================================
+#
+# 【工作目录 WorkDir】
+#   由程序根据运行方式解析（例如 release 下为可执行文件所在目录的上一级，常为 ~/.mjlab），
+#   不能在本文件中指定。
+#   Resolved at runtime (e.g. parent of the binary directory in release, often ~/.mjlab);
+#   cannot be set in this file.
+#
+# 【约定路径、不允许在本文件中配置 | Fixed paths, not overridable here】
+#   数据库文件 | SQLite DB file:     <WorkDir>/data/mazenjay.db
+#   主日志文件 | Main log file:     <WorkDir>/logs/app.log
+#   即使填写 [database].source 或 [log].file 也会被忽略。
+#   Values for [database].source and [log].file are ignored; paths are always the above.
+#
+# =============================================================================
+
+[app]
+# HTTP 监听端口 | Listen port
+port = 8080
+
+[log]
+# 以下为日志滚动与级别；日志文件路径见文件头说明。
+# Log rotation and level; log file path is fixed (see header).
+max_size_mb = 100      # 单文件上限（MB），超过后滚动 | Max size per file before rotation
+max_backups = 10       # 保留历史文件个数 | Number of rotated files to keep
+max_age_days = 0       # 超过 N 天的历史删除；0 表示只按 max_backups | Delete logs older than N days; 0 = use only max_backups
+compress = true        # 滚动后是否 gzip | Gzip rotated files
+console = true         # 是否同时输出到终端 | Also log to stderr
+level = "debug"        # debug / info / warn / error
+
+[database]
+# 仅驱动类型可配；库文件路径固定为 <WorkDir>/data/mazenjay.db，见文件头。
+# Only driver is configurable; DB file path is fixed, see header.
+# Driver: sqlite (implemented) | mysql | postgres (reserved)
+driver = "sqlite"
+
+# MySQL / PostgreSQL（预留，当前未使用 | Reserved, not used yet）
+# host = "127.0.0.1"
+# port = "3306"
+# user = "root"
+# password = "your_password"
+# db_name = "my_portfolio"
