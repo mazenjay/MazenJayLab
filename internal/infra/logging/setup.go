@@ -7,10 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"mjlab/internal/infra/config"
 
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // Setup 将 slog 默认 logger 指向滚动日志文件，并返回与 slog 相同的 Writer 供 Gin 等使用。
@@ -42,7 +45,7 @@ func Setup(cfg config.LogConfig) (writer io.Writer, cleanup func(), err error) {
 
 	var w io.Writer = lj
 	if cfg.Console {
-		w = io.MultiWriter(os.Stderr, lj)
+		w = io.MultiWriter(os.Stdout, lj)
 	}
 
 	level := parseLevel(cfg.Level)
@@ -55,6 +58,35 @@ func Setup(cfg config.LogConfig) (writer io.Writer, cleanup func(), err error) {
 
 	cleanup = func() { _ = lj.Close() }
 	return w, cleanup, nil
+}
+
+// GormConfig 与 Setup 返回的 writer 共用同一目标（文件 ± stderr），实现 slog / Gin / GORM 日志同一路由。
+// [log].level=debug 时打印每条 SQL；生产建议 info/warn。不写彩色转义，避免污染滚动文件。
+func GormConfig(w io.Writer, cfg config.LogConfig) *gorm.Config {
+	lvl := gormlogger.Warn
+	switch strings.ToLower(strings.TrimSpace(cfg.Level)) {
+	case "debug":
+		lvl = gormlogger.Info
+	case "info":
+		lvl = gormlogger.Warn
+	case "warn", "warning":
+		lvl = gormlogger.Warn
+	case "error":
+		lvl = gormlogger.Error
+	default:
+		lvl = gormlogger.Warn
+	}
+
+	gcfg := gormlogger.Config{
+		SlowThreshold:             200 * time.Millisecond,
+		LogLevel:                  lvl,
+		IgnoreRecordNotFoundError: true,
+		Colorful:                  false,
+	}
+	return &gorm.Config{
+		// 首帧跳过 repo/domain，SQL 前缀行指向 application/api 等调用方
+		Logger: newAppFrameGormLogger(w, gcfg),
+	}
 }
 
 func parseLevel(s string) slog.Level {

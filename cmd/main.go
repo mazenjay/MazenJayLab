@@ -8,6 +8,7 @@ import (
 	"mjlab/api"
 	"mjlab/internal/domain"
 	"mjlab/internal/infra/config"
+	"mjlab/internal/infra/database/postgres"
 	"mjlab/internal/infra/database/sqlite3"
 	"mjlab/internal/infra/logging"
 	"mjlab/internal/infra/oos/local"
@@ -22,7 +23,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yanyiwu/gojieba"
+	"gorm.io/gorm"
 )
+
+func newUnitOfWork(gormCfg *gorm.Config) domain.UnitOfWork {
+	if config.IsPostgresDriver() {
+		return postgres.New(config.Cfg.Database.Source, gormCfg)
+	}
+	return sqlite3.New(config.Cfg.Database.Source, gormCfg)
+}
 
 func main() {
 	logWriter, logCleanup, err := logging.Setup(config.Cfg.Log)
@@ -38,6 +47,8 @@ func main() {
 	gin.DefaultWriter = logWriter
 	gin.DefaultErrorWriter = logWriter
 
+	gormCfg := logging.GormConfig(logWriter, config.Cfg.Log)
+
 	var (
 		oss domain.OSS
 		uow domain.UnitOfWork
@@ -45,7 +56,7 @@ func main() {
 	)
 
 	oss = local.New(config.WorkDir)
-	uow = sqlite3.New(config.Cfg.Database.Source)
+	uow = newUnitOfWork(gormCfg)
 
 	var jb *gojieba.Jieba
 	if config.Mode == "release" {
