@@ -34,9 +34,11 @@ type Document struct {
 	Slug        string
 	Draft       bool
 	Tags        []string
-	Date        time.Time
-	HTML        string
-	TOC         string
+	// Kind 文章类型（frontmatter kind:，任意字符串）
+	Kind string
+	Date time.Time
+	HTML string
+	TOC  string
 
 	// SEO（可选，来自 frontmatter）
 	CanonicalURL string // canonical / canonical_url：规范链接，建议绝对 URL
@@ -121,9 +123,6 @@ func fillMetadata(a *Document, m map[string]interface{}) {
 			a.Date = t
 		}
 	}
-	if v, ok := m["slug"].(string); ok {
-		a.Slug = v
-	}
 	if v, ok := m["canonical"].(string); ok {
 		a.CanonicalURL = v
 	}
@@ -138,6 +137,9 @@ func fillMetadata(a *Document, m map[string]interface{}) {
 	}
 	if v, ok := m["author"].(string); ok {
 		a.Author = v
+	}
+	if v, ok := m["kind"].(string); ok {
+		a.Kind = strings.TrimSpace(v)
 	}
 }
 

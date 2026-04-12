@@ -17,7 +17,7 @@ const (
 
 type Searchable interface {
 	GetSearchID() uint                                    // 获取真实 ID (如 1)
-	GetSearchType() string                                // 获取类型 (如 "article", "project")
+	GetSearchType() string                                // 获取类型
 	GetSearchTitle() string                               // 获取标题
 	GetSearchSummary() string                             // 获取摘要
 	GetSearchContent(ctx context.Context) (string, error) // 获取正文文本
@@ -37,19 +37,23 @@ type SearchIndex interface {
 }
 
 type SearchQuery struct {
-	docType  string
-	keywords string
-	tags     []string
-	page     int
-	perPage  int
+	docType    string
+	keywords   string
+	tags       []string
+	titleOnly  bool
+	dateFilter SearchDateFilter
+	page       int
+	perPage    int
 }
 
-func (q SearchQuery) DocType() string  { return q.docType } // 新增：获取类型过滤条件
-func (q SearchQuery) Keywords() string { return q.keywords }
-func (q SearchQuery) Tags() []string   { return q.tags }
-func (q SearchQuery) Page() int        { return q.page }
-func (q SearchQuery) PerPage() int     { return q.perPage }
-func (q SearchQuery) Offset() int      { return (q.page - 1) * q.perPage }
+func (q SearchQuery) DocType() string              { return q.docType }
+func (q SearchQuery) Keywords() string             { return q.keywords }
+func (q SearchQuery) Tags() []string               { return q.tags }
+func (q SearchQuery) TitleOnly() bool              { return q.titleOnly }
+func (q SearchQuery) DateFilter() SearchDateFilter { return q.dateFilter }
+func (q SearchQuery) Page() int                    { return q.page }
+func (q SearchQuery) PerPage() int                 { return q.perPage }
+func (q SearchQuery) Offset() int                  { return (q.page - 1) * q.perPage }
 
 // HasTagFilter 是否包含标签过滤
 func (q SearchQuery) HasTagFilter() bool { return len(q.tags) > 0 }
@@ -57,13 +61,18 @@ func (q SearchQuery) HasTagFilter() bool { return len(q.tags) > 0 }
 // HasDocTypeFilter 是否包含类型过滤
 func (q SearchQuery) HasDocTypeFilter() bool { return q.docType != "" }
 
+// HasDateFilter 是否包含日期过滤
+func (q SearchQuery) HasDateFilter() bool { return q.dateFilter.Has }
+
 type SearchQueryBuilder struct {
-	docType  string
-	keywords string
-	tags     []string
-	page     int
-	perPage  int
-	errs     []string
+	docType    string
+	keywords   string
+	tags       []string
+	titleOnly  bool
+	dateFilter SearchDateFilter
+	page       int
+	perPage    int
+	errs       []string
 }
 
 func NewSearchQueryBuilder(keywords string) *SearchQueryBuilder {
@@ -71,9 +80,6 @@ func NewSearchQueryBuilder(keywords string) *SearchQueryBuilder {
 		keywords: strings.TrimSpace(keywords),
 		page:     DefaultPage,
 		perPage:  DefaultPerPage,
-	}
-	if b.keywords == "" {
-		b.errs = append(b.errs, "keywords must not be empty")
 	}
 	if len(b.keywords) > MaxKeywordLen {
 		b.errs = append(b.errs, "keywords too long (max 200 chars)")
@@ -120,15 +126,38 @@ func (b *SearchQueryBuilder) WithDocType(docType string) *SearchQueryBuilder {
 	return b
 }
 
+func (b *SearchQueryBuilder) WithTitleOnly(v bool) *SearchQueryBuilder {
+	b.titleOnly = v
+	return b
+}
+
+func (b *SearchQueryBuilder) WithDateFilter(f SearchDateFilter) *SearchQueryBuilder {
+	b.dateFilter = f
+	return b
+}
+
 func (b *SearchQueryBuilder) Build() (SearchQuery, error) {
 	if len(b.errs) > 0 {
 		return SearchQuery{}, errors.New(strings.Join(b.errs, "; "))
 	}
+	hasText := strings.TrimSpace(b.keywords) != ""
+	hasTags := len(b.tags) > 0
+	hasDate := b.dateFilter.Has
+	hasDoc := strings.TrimSpace(b.docType) != ""
+	if !hasText && !hasTags && !hasDate && !hasDoc {
+		return SearchQuery{}, errors.New("must specify keywords, tags, date, or resource type filter")
+	}
+	if b.titleOnly && !hasText {
+		return SearchQuery{}, errors.New("title search requires non-empty keywords")
+	}
 	return SearchQuery{
-		keywords: b.keywords,
-		tags:     b.tags,
-		page:     b.page,
-		perPage:  b.perPage,
+		docType:    b.docType,
+		keywords:   b.keywords,
+		tags:       b.tags,
+		titleOnly:  b.titleOnly,
+		dateFilter: b.dateFilter,
+		page:       b.page,
+		perPage:    b.perPage,
 	}, nil
 }
 

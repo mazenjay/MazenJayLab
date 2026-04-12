@@ -2,8 +2,6 @@ package application
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -26,13 +24,16 @@ func (*ArticleService) Pagination(ctx context.Context, query domain.Query) ([]*m
 
 	overviews := make([]*model.ArticleOverview, len(articles))
 	for idx, val := range articles {
+		k := strings.TrimSpace(val.Kind)
 		overviews[idx] = &model.ArticleOverview{
-			ID:      val.ID,
-			Title:   val.Title,
-			Summary: val.Summary,
-			Tags:    val.Tags,
-			Date:    val.CreatedAt.Format("2006-01-02"),
-			Slug:    val.Slug,
+			ID:        val.ID,
+			Title:     val.Title,
+			Summary:   val.Summary,
+			Tags:      val.Tags,
+			Date:      val.CreatedAt.Format("2006-01-02"),
+			Slug:      val.Slug,
+			Kind:      k,
+			KindLabel: k,
 		}
 	}
 
@@ -102,13 +103,18 @@ func (as *ArticleService) CreateArticles(ctx context.Context, recursive bool) (*
 		}
 		rel = filepath.ToSlash(rel)
 
-		n, err := domain.CountArticlesByMarkdown(ctx, rel)
+		slug := slugFromMarkdownPath(rel)
+		if slug == "" {
+			report.Errors = append(report.Errors, model.BatchArticleEntry{Path: rel, Error: "cannot derive slug from path"})
+			continue
+		}
+		n, err := domain.CountArticlesBySlug(ctx, slug)
 		if err != nil {
 			report.Errors = append(report.Errors, model.BatchArticleEntry{Path: rel, Error: err.Error()})
 			continue
 		}
 		if n > 0 {
-			report.Skipped = append(report.Skipped, model.BatchArticleEntry{Path: rel, Reason: "exists_markdown"})
+			report.Skipped = append(report.Skipped, model.BatchArticleEntry{Path: rel, Reason: "exists_slug"})
 			continue
 		}
 
@@ -123,13 +129,28 @@ func (as *ArticleService) CreateArticles(ctx context.Context, recursive bool) (*
 	return report, nil
 }
 
+// slugFromMarkdownPath 使用路径中的文件名（不含目录、不含扩展名）作为 Slug，与 frontmatter 无关。
+func slugFromMarkdownPath(rel string) string {
+	base := filepath.Base(rel)
+	ext := filepath.Ext(base)
+	name := strings.TrimSpace(strings.TrimSuffix(base, ext))
+	if name == "" || name == "." || name == ".." {
+		return ""
+	}
+	return name
+}
+
 func (as *ArticleService) CreateArticle(ctx context.Context, path string) (uint, error) {
 
+	slug := slugFromMarkdownPath(path)
+	if slug == "" {
+		return 0, fmt.Errorf("cannot derive slug from markdown path: %q", path)
+	}
+
 	now := time.Now()
-	data := fmt.Sprintf("%s-%d", path, now.UnixNano())
-	sum := sha256.Sum256([]byte(data))
 	article := &domain.Article{
-		Slug:      hex.EncodeToString(sum[:]),
+		Slug:      slug,
+		Kind:      "",
 		Markdown:  path,
 		CreatedAt: now,
 		UpdatedAt: now,

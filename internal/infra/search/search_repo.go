@@ -7,6 +7,7 @@ import (
 	"mjlab/internal/domain"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/blugelabs/bluge/analysis"
@@ -24,7 +25,7 @@ type repo struct {
 	mu        sync.RWMutex
 	writer    *blugelib.Writer
 	bilingual *analysis.Analyzer
-	path string
+	path      string
 }
 
 func New(indexPath string, analyzer *analysis.Analyzer) domain.SearchIndex {
@@ -303,33 +304,60 @@ func (r *repo) buildDocument(ctx context.Context, s domain.Searchable) *blugelib
 }
 
 func (r *repo) buildQuery(q domain.SearchQuery) blugelib.Query {
+	root := blugelib.NewBooleanQuery()
 
-	titleQ := blugelib.NewMatchQuery(q.Keywords()).
-		SetField(string(domain.FieldTitle)).
-		SetAnalyzer(r.bilingual).
-		SetBoost(3.0)
-
-	summaryQ := blugelib.NewMatchQuery(q.Keywords()).
-		SetField(string(domain.FieldSummary)).
-		SetAnalyzer(r.bilingual).
-		SetBoost(1.5)
-
-	contentQ := blugelib.NewMatchQuery(q.Keywords()).
-		SetField(string(domain.FieldContent)).
-		SetAnalyzer(r.bilingual).
-		SetBoost(1.0)
-
-	shouldQuery := blugelib.NewBooleanQuery().
-		AddShould(titleQ).
-		AddShould(summaryQ).
-		AddShould(contentQ)
-
-	if len(q.Tags()) > 0 {
-		for _, tag := range q.Tags() {
-			tagQ := blugelib.NewTermQuery(tag).SetField(string(domain.FieldTags))
-			shouldQuery.AddMust(tagQ)
+	kw := strings.TrimSpace(q.Keywords())
+	if kw != "" {
+		if q.TitleOnly() {
+			root.AddMust(
+				blugelib.NewMatchQuery(kw).
+					SetField(string(domain.FieldTitle)).
+					SetAnalyzer(r.bilingual).
+					SetBoost(3.0),
+			)
+		} else {
+			titleQ := blugelib.NewMatchQuery(kw).
+				SetField(string(domain.FieldTitle)).
+				SetAnalyzer(r.bilingual).
+				SetBoost(3.0)
+			summaryQ := blugelib.NewMatchQuery(kw).
+				SetField(string(domain.FieldSummary)).
+				SetAnalyzer(r.bilingual).
+				SetBoost(1.5)
+			contentQ := blugelib.NewMatchQuery(kw).
+				SetField(string(domain.FieldContent)).
+				SetAnalyzer(r.bilingual).
+				SetBoost(1.0)
+			root.AddMust(
+				blugelib.NewBooleanQuery().
+					AddShould(titleQ).
+					AddShould(summaryQ).
+					AddShould(contentQ),
+			)
 		}
+	} else {
+		root.AddMust(blugelib.NewMatchAllQuery())
 	}
 
-	return shouldQuery
+	for _, tag := range q.Tags() {
+		root.AddMust(
+			blugelib.NewTermQuery(tag).SetField(string(domain.FieldTags)),
+		)
+	}
+
+	if q.HasDateFilter() {
+		f := q.DateFilter()
+		dq := blugelib.NewDateRangeInclusiveQuery(
+			f.Start, f.End, f.StartInclusive, f.EndInclusive,
+		).SetField(string(domain.FieldPublished))
+		root.AddMust(dq)
+	}
+
+	if q.HasDocTypeFilter() {
+		root.AddMust(
+			blugelib.NewTermQuery(q.DocType()).SetField(string(domain.FieldDocType)),
+		)
+	}
+
+	return root
 }

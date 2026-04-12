@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mjlab/internal/infra/config"
 	"mjlab/internal/pkg/md2html"
 	"strings"
 	"time"
@@ -20,8 +21,10 @@ type Article struct {
 	ViewCount   uint
 	IsPublished bool
 	Tags        []string `gorm:"column:tags;serializer:json"`
-	Markdown    string
-	Html        string
+	// Kind 文章类型（任意字符串，如「技术博客」「日记」）
+	Kind     string `gorm:"column:kind"`
+	Markdown string
+	Html     string
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -37,8 +40,8 @@ type ArticleRepository interface {
 	Save(context.Context, *Article) error
 	Update(context.Context, *Article) error
 	Delete(context.Context, uint) error
-	// CountByMarkdown 用于管理端批量导入时按路径去重（含未发布文章）
-	CountByMarkdown(context.Context, string) (int64, error)
+	// CountBySlug 用于批量导入：slug 与文件名对应且唯一，已存在则跳过
+	CountBySlug(context.Context, string) (int64, error)
 }
 
 func AddArticle(ctx context.Context, article *Article) error {
@@ -53,8 +56,8 @@ func GetArticles(ctx context.Context, q Query) ([]*Article, int64, error) {
 	return uow.Article().List(ctx, q)
 }
 
-func CountArticlesByMarkdown(ctx context.Context, markdown string) (int64, error) {
-	return uow.Article().CountByMarkdown(ctx, markdown)
+func CountArticlesBySlug(ctx context.Context, slug string) (int64, error) {
+	return uow.Article().CountBySlug(ctx, slug)
 }
 
 func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, template string) error {
@@ -83,6 +86,8 @@ func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, te
 		return err
 	}
 
+	doc.HTML = md2html.RewriteArticleMediaURLs(doc.HTML, a.Markdown, config.Cfg.Article.PublicAssetURLPrefix, config.ArticleMarkdownRootRelative())
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -96,7 +101,9 @@ func (a *Article) Render(ctx context.Context, fis *OSSFile, output io.Writer, te
 	a.Title = doc.Title
 	a.Summary = doc.Description
 	a.Tags = doc.Tags
-	a.Slug = doc.Slug
+	a.CreatedAt = doc.Date
+	a.Kind = strings.TrimSpace(doc.Kind)
+	// Slug 由 CreateArticle 根据 markdown 文件名确定，不再使用 frontmatter 中的 slug，避免更新唯一索引。
 
 	return nil
 }
@@ -118,7 +125,7 @@ func (a *Article) ExtractHtmlText(ctx context.Context) (string, error) {
 			return "", err
 		}
 
-		if content, err = io.ReadAll(file); !errors.Is(err, io.EOF) {
+		if content, err = io.ReadAll(file); err != nil {
 			return "", err
 		}
 
@@ -175,7 +182,7 @@ func (*Article) extractHtmlText(htmlStr string) (string, error) {
 
 		if n.Type == html.ElementNode {
 			switch n.Data {
-			case "script", "style", "code", "pre", "head", "meta", "link", "noscript", "a":
+			case "script", "style", "code", "pre", "head", "meta", "link", "noscript", "a", "img":
 				return
 			}
 		}
@@ -211,7 +218,7 @@ func (a *Article) AddToIndex(ctx context.Context) error {
 var _ Searchable = (*Article)(nil)
 
 func (a *Article) GetSearchID() uint        { return a.ID }
-func (a *Article) GetSearchType() string    { return "article" }
+func (a *Article) GetSearchType() string    { return a.Kind }
 func (a *Article) GetSearchTitle() string   { return a.Title }
 func (a *Article) GetSearchSummary() string { return a.Summary }
 func (a *Article) GetSearchContent(ctx context.Context) (string, error) {

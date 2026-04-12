@@ -98,6 +98,7 @@ func startUserServer() *http.Server {
 	engine := gin.Default()
 	engine.Use(api.Options)
 	engine.StaticFile("/static/app.css", filepath.Join(config.WorkDir, "app.css"))
+	engine.Static(config.Cfg.Article.PublicAssetURLPrefix, filepath.Clean(config.Cfg.Article.MarkDownPath))
 
 	engine.GET("/:slug", api.ShowArticle)
 

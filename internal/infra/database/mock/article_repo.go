@@ -20,6 +20,7 @@ var articleRepo = &ArticleRepo{
 			ViewCount:   12,
 			IsPublished: true,
 			Tags:        []string{"DESIGN"},
+			Kind:        "开发技术",
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		},
@@ -31,6 +32,7 @@ var articleRepo = &ArticleRepo{
 			ViewCount:   32,
 			IsPublished: true,
 			Tags:        []string{"BACKEND"},
+			Kind:        "开发技术",
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		},
@@ -42,6 +44,7 @@ var articleRepo = &ArticleRepo{
 			ViewCount:   8,
 			IsPublished: true,
 			Tags:        []string{"UI"},
+			Kind:        "生活分享",
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		},
@@ -153,10 +156,10 @@ func (r *ArticleRepo) Delete(_ context.Context, id uint) error {
 	return errors.New("not found")
 }
 
-func (r *ArticleRepo) CountByMarkdown(_ context.Context, markdown string) (int64, error) {
+func (r *ArticleRepo) CountBySlug(_ context.Context, slug string) (int64, error) {
 	var n int64
 	for _, val := range r.data {
-		if val.Markdown == markdown {
+		if val.Slug == slug {
 			n++
 		}
 	}

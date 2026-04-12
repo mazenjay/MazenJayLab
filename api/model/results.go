@@ -1,12 +1,14 @@
 package model
 
 type ArticleOverview struct {
-	ID      uint     `json:"id"`
-	Title   string   `json:"title"`
-	Summary string   `json:"summary"`
-	Tags    []string `json:"tags"`
-	Date    string   `json:"date"`
-	Slug    string   `json:"slug"`
+	ID        uint     `json:"id"`
+	Title     string   `json:"title"`
+	Summary   string   `json:"summary"`
+	Tags      []string `json:"tags"`
+	Date      string   `json:"date"`
+	Slug      string   `json:"slug"`
+	Kind      string   `json:"kind"`
+	KindLabel string   `json:"kind_label"`
 }
 
 type Page struct {

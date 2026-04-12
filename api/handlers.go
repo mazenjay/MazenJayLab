@@ -188,11 +188,12 @@ func ArticlePagination(c *gin.Context) {
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 	query.Offset = (page - 1) * pageSize
 
 	records, total := articleServ.Pagination(c, query)
-	c.JSON(200, model.Page{Total: total, Records: records[:min(len(records), pageSize)], HasMore: len(records) > pageSize})
+	c.JSON(http.StatusOK, model.Page{Total: total, Records: records[:min(len(records), pageSize)], HasMore: len(records) > pageSize})
 }
 
 func ShowArticle(c *gin.Context) {
@@ -207,38 +208,76 @@ func ShowArticle(c *gin.Context) {
 	c.DataFromReader(http.StatusOK, -1, "text/html", article, nil)
 }
 
+// Search API: default and max per_page (single page; spotlight shows at most this many).
+const searchAPIDefaultPerPage = 20
+const searchAPIMaxPerPage = 20
+
+func clampSearchPerPage(p int) int {
+	if p < 1 {
+		p = searchAPIDefaultPerPage
+	}
+	if p > searchAPIMaxPerPage {
+		return searchAPIMaxPerPage
+	}
+	return p
+}
+
 func Search(c *gin.Context) {
-	var (
-		param model.SearchParam
-		query application.SearchCommand
-		err   error
-
-		res *domain.SearchResults
-	)
-	if err = c.ShouldBindQuery(&param); err != nil {
+	var param model.SearchParam
+	if err := c.ShouldBindQuery(&param); err != nil {
 		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
-	switch param.Command {
-	case "note":
-		query.Type = "article"
+	cmd := strings.ToLower(strings.TrimSpace(param.Command))
+	query := application.SearchCommand{
+		Keywords: strings.TrimSpace(param.Keywords),
+		Page:     param.Page,
+		PerPage:  clampSearchPerPage(param.PerPage),
+	}
+
+	switch cmd {
 	case "tags":
-		query.Tags = strings.Split(param.Keywords, ",")
+		query.Tags = splitSearchTags(param.Keywords)
+		query.Keywords = ""
+	case "title":
+		query.TitleOnly = true
+	case "date":
+		df, err := domain.ParseDateKeyword(param.Keywords)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		query.DateFilter = df
+		query.Keywords = ""
+	case "kind":
+		query.Type = strings.TrimSpace(param.Keywords)
+		query.Keywords = ""
 	default:
+		// 普通全文搜索，command 为空或未知
 	}
 
-	query.Keywords = param.Keywords
-	query.Page = param.Page
-	query.PerPage = param.PerPage
-
-	if res, err = searchServ.Search(c, query); err != nil || res == nil {
+	res, err := searchServ.Search(c, query)
+	if err != nil || res == nil {
 		slog.Error("search failed", "err", err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	c.JSON(200, model.Page{Total: int64(res.Total), Records: res.Hits})
+}
 
+func splitSearchTags(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 func CreateArticle(c *gin.Context) {
@@ -305,8 +344,7 @@ func ManageArticleStatus(c *gin.Context) {
 func RebuildIndex(c *gin.Context) {
 
 	go func() {
-		err := searchServ.RebuildIndex(c)
-		slog.Warn("rebuild index completed", "error", err)
+		_ = searchServ.RebuildIndex(c)
 	}()
 
 	c.JSON(200, gin.H{

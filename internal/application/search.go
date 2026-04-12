@@ -9,11 +9,13 @@ import (
 )
 
 type SearchCommand struct {
-	Type     string
-	Keywords string
-	Tags     []string
-	Page     int
-	PerPage  int
+	Type       string
+	Keywords   string
+	Tags       []string
+	TitleOnly  bool
+	DateFilter domain.SearchDateFilter
+	Page       int
+	PerPage    int
 }
 
 type SearchService struct{}
@@ -29,7 +31,9 @@ func (*SearchService) Search(ctx context.Context, command SearchCommand) (*domai
 		WithPage(command.Page).
 		WithPerPage(command.PerPage).
 		WithDocType(command.Type).
-		WithTags(command.Tags)
+		WithTags(command.Tags).
+		WithTitleOnly(command.TitleOnly).
+		WithDateFilter(command.DateFilter)
 
 	if query, err = qb.Build(); err != nil {
 		return res, err
@@ -41,7 +45,7 @@ func (*SearchService) Search(ctx context.Context, command SearchCommand) (*domai
 	return res, err
 }
 
-func (s *SearchService) AddDocs(ctx context.Context, docs... domain.Searchable) error {
+func (s *SearchService) AddDocs(ctx context.Context, docs ...domain.Searchable) error {
 	if len(docs) == 0 {
 		return errors.New("doc is empty")
 	}

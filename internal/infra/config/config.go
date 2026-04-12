@@ -32,11 +32,11 @@ func init() {
 	}
 
 	var (
-		article = filepath.Join(WorkDir, "article")
-		templ   = filepath.Join(WorkDir, "template.html")
-		index   = filepath.Join(WorkDir, "index")
-		dbFile  = filepath.Join(WorkDir, "data", "mazenjay.db")
-		logFile = filepath.Join(WorkDir, "logs", "app.log")
+		article  = filepath.Join(WorkDir, "article")
+		templ    = filepath.Join(WorkDir, "template.html")
+		index    = filepath.Join(WorkDir, "index")
+		dbFile   = filepath.Join(WorkDir, "data", "mazenjay.db")
+		logFile  = filepath.Join(WorkDir, "logs", "app.log")
 		artilemd = filepath.Join(WorkDir, "article_md")
 	)
 	// 数据文件、主日志路径为约定目录，不在配置文件中提供（忽略 toml / 环境变量中的覆盖）
@@ -54,6 +54,7 @@ func init() {
 	Cfg.Search.IndexPath = ProcessPath("", index, true)
 	Cfg.Log.File = ProcessPath("", logFile, false)
 	Cfg.Article.MarkDownPath = ProcessPath("", artilemd, true)
+	Cfg.Article.PublicAssetURLPrefix = "/static"
 
 }
 
@@ -91,7 +92,9 @@ type ArticleConfig struct {
 	ServePrefix    string `mapstructure:"serve_prefix"`     // 静态服务的前缀，例如 "/generated" 或 "/articles"
 	CleanOnStartup bool   `mapstructure:"clean_on_startup"` // 启动时是否清空 output_dir（默认 false）
 	Template       string `mapstructure:"template"`         // 自定义 HTML 模板目录（如果用模板渲染）
-	MarkDownPath string
+	MarkDownPath   string
+	// PublicAssetURLPrefix 对外暴露 Markdown 资源时的 URL 前缀（与 Gin Static、Next/nginx 反代一致），如 /article_md
+	PublicAssetURLPrefix string `mapstructure:"public_asset_url_prefix"`
 }
 
 // DbConfig [database] 部分
@@ -184,4 +187,17 @@ func ProcessPath(path string, defaultPath string, isDir bool) string {
 
 	return path
 
+}
+
+// ArticleMarkdownRootRelative 返回 MarkDownPath 相对 WorkDir 的路径（正斜杠），用于 Markdown 资源路径校验与改写。
+func ArticleMarkdownRootRelative() string {
+	rel, err := filepath.Rel(WorkDir, filepath.Clean(Cfg.Article.MarkDownPath))
+	if err != nil {
+		return "article_md"
+	}
+	s := filepath.ToSlash(rel)
+	if s == "." || s == "" {
+		return "article_md"
+	}
+	return s
 }
