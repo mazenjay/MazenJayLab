@@ -54,7 +54,7 @@ func init() {
 	Cfg.Search.IndexPath = ProcessPath("", index, true)
 	Cfg.Log.File = ProcessPath("", logFile, false)
 	Cfg.Article.MarkDownPath = ProcessPath("", artilemd, true)
-	Cfg.Article.PublicAssetURLPrefix = "/static"
+	Cfg.Article.PublicAssetURLPrefix = "/images"
 
 }
 
