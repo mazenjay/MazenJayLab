@@ -1,4 +1,5 @@
-import type { ArticleOverview, Project, SearchHit } from "./types";
+import type { ArticleOverview, SearchHit } from "./types";
+import { ARTICLES_PAGE_SIZE } from "./constants";
 
 export const mockArticles: ArticleOverview[] = [
   {
@@ -9,6 +10,8 @@ export const mockArticles: ArticleOverview[] = [
     tags: ["design", "frontend"],
     date: "2026-03-01",
     slug: "building-the-digital-glass-lab",
+    kind: "开发技术",
+    kind_label: "开发技术",
   },
   {
     id: 2,
@@ -18,6 +21,8 @@ export const mockArticles: ArticleOverview[] = [
     tags: ["backend", "benchmark"],
     date: "2026-03-02",
     slug: "go-vs-rust-microservice-benchmark",
+    kind: "开发技术",
+    kind_label: "开发技术",
   },
   {
     id: 3,
@@ -27,6 +32,8 @@ export const mockArticles: ArticleOverview[] = [
     tags: ["ui", "product"],
     date: "2026-03-03",
     slug: "the-art-of-minimalist-interfaces",
+    kind: "学习笔记",
+    kind_label: "学习笔记",
   },
   {
     id: 4,
@@ -36,6 +43,8 @@ export const mockArticles: ArticleOverview[] = [
     tags: ["life", "engineering"],
     date: "2026-03-04",
     slug: "midnight-debugging-session",
+    kind: "生活分享",
+    kind_label: "生活分享",
   },
   {
     id: 5,
@@ -45,79 +54,15 @@ export const mockArticles: ArticleOverview[] = [
     tags: ["golang", "database"],
     date: "2026-03-05",
     slug: "understanding-gorm-hooks",
-  },
-  {
-    id: 6,
-    title: "Search Index Rebuild Strategy",
-    summary:
-      "Incremental indexing vs full rebuild: trade-offs and fallback plans for real systems.",
-    tags: ["search", "infra"],
-    date: "2026-03-06",
-    slug: "search-index-rebuild-strategy",
-  },
-  {
-    id: 7,
-    title: "SSR and Streaming in Next.js",
-    summary:
-      "A practical template for SSR-first pages with client islands and smooth progressive loading.",
-    tags: ["nextjs", "ssr"],
-    date: "2026-03-07",
-    slug: "ssr-and-streaming-in-nextjs",
-  },
-  {
-    id: 8,
-    title: "Designing Better Empty States",
-    summary:
-      "Empty states are product moments. Here's how to make them useful and emotionally clear.",
-    tags: ["ux", "copywriting"],
-    date: "2026-03-08",
-    slug: "designing-better-empty-states",
-  },
-  {
-    id: 9,
-    title: "Event Loop Deep Dive",
-    summary:
-      "Microtasks, macrotasks, and how async scheduling impacts perceived UI performance.",
-    tags: ["javascript", "runtime"],
-    date: "2026-03-09",
-    slug: "event-loop-deep-dive",
+    kind: "学习笔记",
+    kind_label: "学习笔记",
   },
 ];
 
-export const mockProjects: Project[] = [
-  {
-    title: "Nebula OS",
-    subtitle: "System Architecture",
-    summary: "A conceptual browser-native operating system powered by WebAssembly.",
-    icon: "ri-planet-line",
-    theme_color: "purple",
-    status: "Live",
-    repo_url: "https://github.com",
-    launch_url: "https://example.com",
-    techs: [
-      { name: "Go", icon: "ri-code-box-line" },
-      { name: "WASM", icon: "ri-cpu-line" },
-    ],
-  },
-  {
-    title: "Prisma Editor",
-    subtitle: "Productivity",
-    summary: "An AI-first coding editor with context-aware assistance and fast indexing.",
-    icon: "ri-code-s-slash-line",
-    theme_color: "blue",
-    status: "Beta",
-    repo_url: "https://github.com",
-    launch_url: "https://example.com",
-    techs: [
-      { name: "Next.js", icon: "ri-reactjs-line" },
-      { name: "TypeScript", icon: "ri-terminal-box-line" },
-    ],
-  },
-];
-
+/** 无 BACKEND_URL 时 /api/articles 与 Spotlight 搜索回退用的少量假数据 */
 export function paginateArticles(page: number, perPage: number) {
   const p = Math.max(1, page || 1);
-  const pp = Math.max(1, perPage || 7);
+  const pp = Math.max(1, perPage || ARTICLES_PAGE_SIZE);
   const start = (p - 1) * pp;
   const end = start + pp;
   const records = mockArticles.slice(start, end);
@@ -128,13 +73,60 @@ export function paginateArticles(page: number, perPage: number) {
   };
 }
 
+/** 模拟后端：在首处匹配外包 <mark>（与真实 API 返回格式一致） */
+function wrapSearchMark(text: string, kw: string): string {
+  if (!kw.trim()) return text;
+  const lower = text.toLowerCase();
+  const k = kw.toLowerCase();
+  const idx = lower.indexOf(k);
+  if (idx < 0) return text;
+  return (
+    text.slice(0, idx) +
+    "<mark>" +
+    text.slice(idx, idx + k.length) +
+    "</mark>" +
+    text.slice(idx + k.length)
+  );
+}
+
+/** 与 Go ParseDateKeyword 语义对齐的本地过滤（UTC 日界） */
+function mockArticleMatchesDateKeyword(articleDate: string, kw: string): boolean {
+  const m = /^(gt|gte|lt|lte|eq):(\d{4}-\d{2}-\d{2})$/i.exec(kw.trim());
+  if (!m) return false;
+  const op = m[1].toLowerCase();
+  const ymd = m[2];
+  const dayStart = new Date(`${ymd}T00:00:00.000Z`).getTime();
+  const nextDay = new Date(`${ymd}T00:00:00.000Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const nextStart = nextDay.getTime();
+  const t = new Date(`${articleDate}T12:00:00.000Z`).getTime();
+  if (Number.isNaN(t)) return false;
+  switch (op) {
+    case "eq":
+      return t >= dayStart && t < nextStart;
+    case "gt":
+      return t >= nextStart;
+    case "gte":
+      return t >= dayStart;
+    case "lt":
+      return t < dayStart;
+    case "lte":
+      return t < nextStart;
+    default:
+      return false;
+  }
+}
+
 export function searchMock(
   keywords: string,
   command: string,
   page: number,
   perPage: number,
 ) {
-  const kw = (keywords || "").toLowerCase().trim();
+  const cmd = (command || "").toLowerCase().trim();
+  const kwRaw = (keywords || "").trim();
+  const kw = kwRaw.toLowerCase();
+
   let hits: SearchHit[] = mockArticles.map((a) => ({
     type: "article",
     id: a.id,
@@ -144,14 +136,65 @@ export function searchMock(
     link: a.slug,
   }));
 
-  if (command === "project" || command === "type:project") {
-    hits = [];
-  }
-
-  if (kw) {
-    hits = hits.filter((h) =>
-      `${h.title} ${h.summary}`.toLowerCase().includes(kw),
-    );
+  if (cmd === "tags") {
+    const want = kwRaw
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    if (want.length === 0) {
+      hits = [];
+    } else {
+      hits = hits.filter((h) => {
+        const art = mockArticles.find((a) => a.id === h.id);
+        if (!art) return false;
+        return want.every((t) =>
+          art.tags.some((tag) => tag.toLowerCase() === t),
+        );
+      });
+    }
+  } else if (cmd === "title") {
+    if (!kwRaw) {
+      hits = [];
+    } else {
+      hits = hits
+        .filter((h) => h.title.toLowerCase().includes(kw))
+        .map((h) => ({
+          ...h,
+          title: wrapSearchMark(h.title, kwRaw),
+        }));
+    }
+  } else if (cmd === "date") {
+    if (!kwRaw) {
+      hits = [];
+    } else {
+      hits = hits.filter((h) => {
+        const art = mockArticles.find((a) => a.id === h.id);
+        if (!art) return false;
+        return mockArticleMatchesDateKeyword(art.date, kwRaw);
+      });
+    }
+  } else if (cmd === "type" || cmd === "category" || cmd === "kind") {
+    if (!kwRaw.trim()) {
+      hits = [];
+    } else {
+      const needle = kwRaw.trim().toLowerCase();
+      hits = hits.filter((h) => {
+        const art = mockArticles.find((a) => a.id === h.id);
+        if (!art) return false;
+        const k = art.kind.toLowerCase();
+        return k === needle || k.includes(needle);
+      });
+    }
+  } else if (kw) {
+    hits = hits
+      .filter((h) =>
+        `${h.title} ${h.summary}`.toLowerCase().includes(kw),
+      )
+      .map((h) => ({
+        ...h,
+        title: wrapSearchMark(h.title, kwRaw),
+        summary: wrapSearchMark(h.summary, kwRaw),
+      }));
   }
 
   const p = Math.max(1, page || 1);

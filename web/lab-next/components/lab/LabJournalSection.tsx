@@ -8,7 +8,7 @@ import type { ArticleOverview } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** 与 Go `api/handlers.go` ArticlePagination 中 pageSize 一致 */
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 5;
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
@@ -20,6 +20,16 @@ function formatListDate(raw: string): string {
     return short || "—";
   }
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatListYear(raw: string): string {
+  if (!raw?.trim()) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) {
+    const y = raw.slice(0, 4);
+    return /^\d{4}$/.test(y) ? y : "—";
+  }
+  return String(d.getFullYear());
 }
 
 export const LabJournalSection = forwardRef<HTMLElement, { className?: string }>(
@@ -39,6 +49,8 @@ export const LabJournalSection = forwardRef<HTMLElement, { className?: string }>
 
     const listAnchorRef = useRef<HTMLDivElement>(null);
     const skipScrollRef = useRef(true);
+    /** 仅「向后翻页」时把列表滚入视口；Prev 回上一页不滚动，避免视口被整体上移 */
+    const prevPageRef = useRef<number | null>(null);
 
     useEffect(() => {
       let cancelled = false;
@@ -74,13 +86,20 @@ export const LabJournalSection = forwardRef<HTMLElement, { className?: string }>
     useEffect(() => {
       if (skipScrollRef.current) {
         skipScrollRef.current = false;
+        prevPageRef.current = page;
         return;
       }
-      listAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const prev = prevPageRef.current ?? page;
+      prevPageRef.current = page;
+      if (page > prev) {
+        listAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }, [page]);
 
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    const showPager = !error && total > 0 && totalPages > 1;
+    /** totalPages 依赖 total 与 PAGE_SIZE；若与后端 pageSize 不一致会算错一页，故同时参考 has_more / 当前页 */
+    const showPager =
+      !error && total > 0 && (totalPages > 1 || hasMore || page > 1);
 
     const goPrev = () => {
       setSlideDir(-1);
@@ -108,9 +127,6 @@ export const LabJournalSection = forwardRef<HTMLElement, { className?: string }>
         <div className="mx-auto flex max-w-7xl flex-col gap-16 px-6 py-32 md:gap-32 md:px-24 lg:flex-row">
           <div className="lg:w-1/3">
             <div className="sticky top-32">
-              <p className="mb-4 font-mono text-sm font-bold uppercase tracking-widest text-sky-600/90">
-                Scene III · 浮出水面
-              </p>
               <h2 className="mb-8 text-6xl font-black uppercase leading-[0.85] tracking-tighter md:text-8xl">
                 Lab
                 <br />
@@ -170,15 +186,39 @@ export const LabJournalSection = forwardRef<HTMLElement, { className?: string }>
                             ease: EASE_OUT,
                           }}
                           className={cn(
-                            "group flex flex-col justify-between gap-6 border-b-2 border-slate-100 py-12 transition-colors duration-300 hover:border-slate-900 md:flex-row md:items-center",
+                            "group flex flex-col gap-y-1 gap-x-0 border-b border-slate-100 py-5 transition-colors duration-300 hover:border-slate-900 md:flex-row md:flex-wrap md:items-start md:justify-between md:gap-x-5 md:gap-y-1",
                           )}
                         >
-                          <h3 className="max-w-xl text-3xl font-extrabold tracking-tight text-slate-400 transition-colors duration-300 group-hover:text-slate-900 md:text-4xl">
-                            {article.title}
-                          </h3>
-                          <span className="shrink-0 font-mono text-sm font-bold tracking-widest text-slate-400 transition-colors group-hover:text-slate-900">
-                            {formatListDate(article.date)}
-                          </span>
+                          <div className="min-w-0 max-w-xl flex-1 md:min-w-[min(100%,20rem)]">
+                            <h3 className="text-2xl font-extrabold tracking-tight text-slate-400 transition-colors duration-300 group-hover:text-slate-900 md:text-3xl">
+                              {article.title}
+                            </h3>
+                          </div>
+                          <div className="flex w-full shrink-0 flex-col items-start gap-0 text-left md:w-auto md:items-end md:text-right">
+                            <span className="font-mono text-sm font-bold leading-tight tracking-widest text-slate-400 transition-colors group-hover:text-slate-900">
+                              {formatListDate(article.date)}
+                            </span>
+                            <span className="font-mono text-xs font-semibold leading-tight tabular-nums tracking-widest text-slate-300 transition-colors group-hover:text-slate-500">
+                              {formatListYear(article.date)}
+                            </span>
+                          </div>
+                          <div className="flex w-full min-w-0 basis-full items-baseline justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              {article.kind_label?.trim() ? (
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700/80 md:text-xs">
+                                  {article.kind_label}
+                                </p>
+                              ) : (
+                                <span className="block min-h-[1em]" aria-hidden />
+                              )}
+                            </div>
+                            <span
+                              className="shrink-0 truncate text-right font-mono text-[10px] font-medium tracking-wide text-slate-400/90 transition-colors group-hover:text-slate-500 sm:text-[11px]"
+                              title={article.slug || undefined}
+                            >
+                              /{article.slug || "—"}
+                            </span>
+                          </div>
                         </motion.a>
                       );
                     })}

@@ -5,6 +5,9 @@ export type ArticleOverview = {
   tags: string[];
   date: string;
   slug: string;
+  /** 文章类型，任意字符串（与 kind_label 展示一致时由后端填同一值） */
+  kind: string;
+  kind_label: string;
 };
 
 export type ProjectTech = {

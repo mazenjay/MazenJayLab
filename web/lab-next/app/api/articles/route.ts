@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeArticlesPayload } from "@/lib/articles-payload";
+import { ARTICLES_PAGE_SIZE } from "@/lib/constants";
 import { paginateArticles } from "@/lib/mock-data";
 
 export async function GET(request: NextRequest) {
@@ -27,10 +28,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(payload, { status: res.ok ? 200 : res.status });
     } catch {
       const page = Number(searchParams.get("page") || "1");
-      return NextResponse.json(paginateArticles(page, 7));
+      return NextResponse.json(paginateArticles(page, ARTICLES_PAGE_SIZE));
     }
   }
 
   const page = Number(searchParams.get("page") || "1");
-  return NextResponse.json(paginateArticles(page, 7));
+  return NextResponse.json(paginateArticles(page, ARTICLES_PAGE_SIZE));
 }

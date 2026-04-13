@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  SEARCH_API_MAX_PER_PAGE,
+  SEARCH_PER_PAGE,
+} from "@/lib/constants";
 import { searchMock } from "@/lib/mock-data";
 
 export async function GET(request: NextRequest) {
@@ -6,7 +10,13 @@ export async function GET(request: NextRequest) {
   const command = request.nextUrl.searchParams.get("command") || "";
   const keywords = request.nextUrl.searchParams.get("keywords") || "";
   const page = Number(request.nextUrl.searchParams.get("page") || "1");
-  const perPage = Number(request.nextUrl.searchParams.get("per_page") || "10");
+  const rawPer = Number(
+    request.nextUrl.searchParams.get("per_page") || String(SEARCH_PER_PAGE),
+  );
+  const perPage = Math.min(
+    SEARCH_API_MAX_PER_PAGE,
+    Math.max(1, Number.isFinite(rawPer) ? rawPer : SEARCH_PER_PAGE),
+  );
 
   if (backend) {
     try {
